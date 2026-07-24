@@ -1,0 +1,8 @@
+# Copy this file to .dev.vars for local Wrangler development.
+# Never commit .dev.vars. It is excluded by .gitignore.
+SEATS_AERO_API_KEY=replace_with_your_seats_aero_partner_api_key
+SERPAPI_KEY=replace_with_your_serpapi_key
+
+# Optional: comma-separated origins allowed to call /api/* from another site.
+# Leave blank when the frontend and Worker are hosted together on Cloudflare.
+ALLOWED_ORIGINS=
