@@ -1,0 +1,14 @@
+PointsBoard v11.3.2 build-environment note
+
+The source-level automated tests and JavaScript/JSX syntax checks passed in the audit environment.
+
+A fresh local Vite production build was not completed because the isolated npm mirror returned an HTTP 503 while installing dependencies, leaving Vite unavailable locally. This is not a claim that the source build passed in the isolated environment.
+
+The deployment package includes GitHub Actions and Cloudflare Workers Builds configuration that performs:
+
+npm ci
+npm test
+npm run build
+npm run deploy:dry
+
+Production promotion remains conditional on a green GitHub Actions run, successful Cloudflare Workers Build, /api/health version 11.3.2, and one credentialed Live smoke test.

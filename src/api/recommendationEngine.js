@@ -115,30 +115,31 @@ function confidenceFor(r) {
   return "Low";
 }
 
-export function scoreResults(results, prefs = DEFAULT_RECOMMENDATION_PREFS, cppLibrary = EMPTY_CPP_LIBRARY, fxRates = {}) {
-  const validation = validateRecommendationPrefs(prefs);
-  if (!validation.valid) return { scored: [], validation, usedFallback: false, eligibleCount: 0 };
-
-  const enriched = results.map((r) => enrichResult(r, cppLibrary, fxRates));
+export function recommendationExclusionReasons(r, prefs = DEFAULT_RECOMMENDATION_PREFS) {
+  const reasons = [];
   const required = codes(prefs.requiredAirports);
-  const preferred = codes(prefs.preferredAirports);
   const avoid = codes(prefs.avoidAirports);
   const layMin = num(prefs.layoverMinH) * 60;
   const layMax = num(prefs.layoverMaxH) * 60;
-  const eligible = enriched.filter((r) => {
-    if (["missing-rate", "taxes-unavailable"].includes(r.fxStatus)) return false;
-    if (r.stops != null && r.stops > num(prefs.maxStops)) return false;
-    if (r.totalMinutes != null && r.totalMinutes > num(prefs.maxDurationH) * 60) return false;
-    if (r.departMin != null && !isMinuteInWindow(r.departMin, prefs.departStart, prefs.departEnd)) return false;
-    if (r.arriveMin != null && !isMinuteInWindow(r.arriveMin, prefs.arriveStart, prefs.arriveEnd)) return false;
-    const connections = (r.connections || []).map((c) => String(c).toUpperCase());
-    if (connections.some((c) => avoid.has(c))) return false;
-    if (required.size && !connections.some((c) => required.has(c))) return false;
-    if (r.layovers?.some((m) => m < layMin || m > layMax)) return false;
-    return true;
-  });
+  const connections = (r.connections || []).map((c) => String(c).toUpperCase());
 
-  const pool = eligible.length ? eligible : enriched;
+  if (r.fxStatus === "missing-rate") reasons.push(`${r.taxesCurrency} FX rate is required`);
+  if (r.fxStatus === "taxes-unavailable") reasons.push("Taxes and fees were not supplied");
+  if (r.stops != null && r.stops > num(prefs.maxStops)) reasons.push(`Exceeds maximum stops (${prefs.maxStops})`);
+  if (r.totalMinutes != null && r.totalMinutes > num(prefs.maxDurationH) * 60) reasons.push(`Exceeds maximum travel time (${prefs.maxDurationH}h)`);
+  if (r.departMin != null && !isMinuteInWindow(r.departMin, prefs.departStart, prefs.departEnd)) reasons.push("Departure is outside the selected window");
+  if (r.arriveMin != null && !isMinuteInWindow(r.arriveMin, prefs.arriveStart, prefs.arriveEnd)) reasons.push("Arrival is outside the selected window");
+  const avoided = connections.filter((c) => avoid.has(c));
+  if (avoided.length) reasons.push(`Uses excluded connection airport${avoided.length > 1 ? "s" : ""}: ${[...new Set(avoided)].join(", ")}`);
+  if (required.size && !connections.some((c) => required.has(c))) reasons.push(`Does not use a required connection: ${[...required].join(", ")}`);
+  const outsideLayovers = (r.layovers || []).filter((m) => m < layMin || m > layMax);
+  if (outsideLayovers.length) reasons.push("At least one layover is outside the preferred range");
+  return reasons;
+}
+
+function scorePool(pool, prefs, preferred, avoid) {
+  const layMin = num(prefs.layoverMinH) * 60;
+  const layMax = num(prefs.layoverMaxH) * 60;
   const costs = pool.map((r) => r.economicCost).filter(Number.isFinite);
   const durations = pool.map((r) => r.totalMinutes).filter(Number.isFinite);
   const minCost = costs.length ? Math.min(...costs) : 0;
@@ -147,7 +148,7 @@ export function scoreResults(results, prefs = DEFAULT_RECOMMENDATION_PREFS, cppL
   const maxDur = durations.length ? Math.max(...durations) : 1;
   const w = weightsByPreset[prefs.preset] || weightsByPreset.balanced;
 
-  const scored = pool.map((r) => {
+  return pool.map((r) => {
     const costScore = r.economicCost == null ? 0.15 : 1 - ((r.economicCost - minCost) / Math.max(1, maxCost - minCost));
     const durationScore = r.totalMinutes == null ? 0.45 : 1 - ((r.totalMinutes - minDur) / Math.max(1, maxDur - minDur));
     const stopsScore = r.stops == null ? 0.45 : r.stops === 0 ? 1 : r.stops === 1 ? 0.65 : 0.2;
@@ -183,17 +184,45 @@ export function scoreResults(results, prefs = DEFAULT_RECOMMENDATION_PREFS, cppL
       recommendationScore: Math.round(total),
       recommendationReasons: reasons.slice(0, 4),
       confidence: confidenceFor(r),
-      eligible: eligible.includes(r),
+      eligible: recommendationExclusionReasons(r, prefs).length === 0,
     };
   }).sort((a, b) => b.recommendationScore - a.recommendationScore);
+}
 
-  return { scored, validation, usedFallback: scored.length > 0 && eligible.length === 0, eligibleCount: eligible.length };
+export function scoreResults(results, prefs = DEFAULT_RECOMMENDATION_PREFS, cppLibrary = EMPTY_CPP_LIBRARY, fxRates = {}) {
+  const validation = validateRecommendationPrefs(prefs);
+  if (!validation.valid) return { scored: [], excluded: [], validation, usedFallback: false, eligibleCount: 0 };
+
+  const enriched = results.map((r) => enrichResult(r, cppLibrary, fxRates));
+  const preferred = codes(prefs.preferredAirports);
+  const avoid = codes(prefs.avoidAirports);
+  const eligible = enriched.filter((r) => recommendationExclusionReasons(r, prefs).length === 0);
+  const excluded = enriched
+    .filter((r) => recommendationExclusionReasons(r, prefs).length > 0)
+    .map((r) => ({
+      ...r,
+      recommendationScore: null,
+      recommendationReasons: [],
+      exclusionReasons: recommendationExclusionReasons(r, prefs),
+      confidence: confidenceFor(r),
+      eligible: false,
+    }));
+
+  const pool = eligible.length ? eligible : enriched;
+  const scored = scorePool(pool, prefs, preferred, avoid);
+  return {
+    scored,
+    excluded: eligible.length ? excluded : [],
+    validation,
+    usedFallback: scored.length > 0 && eligible.length === 0,
+    eligibleCount: eligible.length,
+  };
 }
 
 export function buildRecommendations(results, prefs, cppLibrary = EMPTY_CPP_LIBRARY, fxRates = {}) {
   const scoredResult = scoreResults(results, prefs, cppLibrary, fxRates);
-  const { scored, validation, usedFallback, eligibleCount } = scoredResult;
-  if (!validation.valid || !scored.length) return { scored, cards: [], other: [], validation, usedFallback, eligibleCount };
+  const { scored, excluded, validation, usedFallback, eligibleCount } = scoredResult;
+  if (!validation.valid || !scored.length) return { scored, cards: [], other: [], notRecommended: excluded || [], validation, usedFallback, eligibleCount };
   const complete = scored.filter((r) => r.economicCost != null && r.cpp != null);
   const categoryPool = complete.length ? complete : scored;
   const lowest = [...categoryPool].filter((r) => r.economicCost != null).sort((a, b) => a.economicCost - b.economicCost)[0];
@@ -209,7 +238,8 @@ export function buildRecommendations(results, prefs, cppLibrary = EMPTY_CPP_LIBR
   ].filter(([, r]) => r);
   const featuredIds = new Set(cards.map(([, r]) => r.id));
   const other = scored.filter((r) => !featuredIds.has(r.id)).slice(0, 5);
-  return { scored, cards, other, validation, usedFallback, eligibleCount };
+  const notRecommended = (excluded || []).slice(0, 5);
+  return { scored, cards, other, notRecommended, validation, usedFallback, eligibleCount };
 }
 
 export function groupRecommendationResults(results, prefs, cppLibrary = EMPTY_CPP_LIBRARY, fxRates = {}) {

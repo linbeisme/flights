@@ -1,13 +1,13 @@
 {
   "name": "reward-flights",
   "private": true,
-  "version": "11.3.1",
+  "version": "11.3.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node test-logic.mjs && node test-functions.mjs && node test-simulation.mjs && node test-recommendation.mjs && node test-currency.mjs && node test-features-v11-3.mjs && node test-ui-retention-v11-3-1.mjs && node test-deployment.mjs",
+    "test": "node test-logic.mjs && node test-functions.mjs && node test-simulation.mjs && node test-recommendation.mjs && node test-currency.mjs && node test-features-v11-3.mjs && node test-ui-retention-v11-3-1.mjs && node test-enhancements-v11-3-2.mjs && node test-deployment.mjs",
     "audit": "npm test",
     "check": "npm test && npm run build",
     "deploy:dry": "npm run build && wrangler deploy --dry-run --outdir .wrangler-dry-run",

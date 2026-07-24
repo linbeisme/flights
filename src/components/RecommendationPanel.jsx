@@ -62,13 +62,43 @@ function RouteDetails({ r }) {
   );
 }
 
+function FlightInfoPopover({ r, searchedAt, compact = false }) {
+  const carriers = r.carriers?.length ? r.carriers.map(airlineName).join(" and ") : "Not supplied";
+  return (
+    <details className="relative inline-block">
+      <summary
+        className={`list-none cursor-pointer rounded-full border border-deal bg-deal-soft text-deal hover:border-ink ${compact ? "px-1.5 py-0.5 text-xs" : "px-2 py-1 text-sm"}`}
+        title="Show flight details"
+        aria-label={`Show flight details for ${r.programLabel}`}
+      >
+        ✈
+      </summary>
+      <div className="absolute left-0 z-30 mt-1 w-72 rounded border-2 border-ink bg-card p-3 text-left shadow-lg">
+        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-magenta">Available flight details</p>
+        <dl className="mt-2 grid grid-cols-[94px_1fr] gap-x-2 gap-y-1 text-xs">
+          <dt className="text-ink-soft">Flight #</dt><dd className="font-data font-bold">{r.flightNumbers || "Not supplied"}</dd>
+          <dt className="text-ink-soft">Route</dt><dd className="font-data">{r.origin}→{r.destination}</dd>
+          <dt className="text-ink-soft">Departure</dt><dd className="font-data">{r.date || "Date not supplied"} · {r.departTime || "Time not supplied"}</dd>
+          <dt className="text-ink-soft">Arrival</dt><dd className="font-data">{r.arriveTime || "Time not supplied"}{r.arrivesNextDay ? " +1 day" : ""}</dd>
+          <dt className="text-ink-soft">Operating</dt><dd>{carriers}</dd>
+          <dt className="text-ink-soft">Seats</dt><dd>{r.seats == null ? "Available; count not supplied" : `${r.seats} award seat${r.seats === 1 ? "" : "s"}`}</dd>
+          <dt className="text-ink-soft">Checked</dt><dd>{when(r.checkedAt || searchedAt)}</dd>
+        </dl>
+      </div>
+    </details>
+  );
+}
+
 function Card({ title, r, searchedAt, pax }) {
   return (
     <article className="rounded border-2 border-line bg-card p-3">
       <div className="flex items-start justify-between gap-2">
-        <div>
+        <div className="min-w-0">
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-magenta">{title}</p>
-          <h3 className="mt-1 font-data text-base font-bold">{r.programLabel}</h3>
+          <div className="mt-1 flex items-center gap-2">
+            <h3 className="min-w-0 font-data text-base font-bold">{r.programLabel}</h3>
+            <FlightInfoPopover r={r} searchedAt={searchedAt} />
+          </div>
           <p className="text-[11px] font-light text-ink-soft">
             ({r.carriers?.length ? `Operated by ${r.carriers.map(airlineName).join(" and ")}` : "Operating airline not provided"})
           </p>
@@ -90,6 +120,9 @@ function Card({ title, r, searchedAt, pax }) {
           <span className="text-ink-soft">Cash fare</span>
           <div className="font-bold">{r.cash == null ? "Unavailable" : formatMoney(r.cash, r.cashCurrency || BASE_CURRENCY)}</div>
         </div>
+      </div>
+
+      <div className="mt-2 grid grid-cols-2 gap-2 rounded border border-deal bg-deal-soft p-2 font-data text-xs">
         <div>
           <span className="text-ink-soft">Economic cost</span>
           <div className="font-bold text-deal">{r.economicCost == null ? "FX/CPP data required" : formatMoney(r.economicCost, BASE_CURRENCY)}</div>
@@ -121,12 +154,16 @@ function Card({ title, r, searchedAt, pax }) {
   );
 }
 
-function OtherRow({ r, searchedAt, pax }) {
+function AlternativeRow({ r, searchedAt, pax, status = "qualified" }) {
+  const notRecommended = status === "notRecommended";
   return (
-    <li className="rounded border border-line bg-card p-2.5">
+    <li className={`rounded border p-2.5 ${notRecommended ? "border-warn bg-warn/10" : "border-line bg-card"}`}>
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <p className="font-data text-sm font-bold">{r.programLabel}</p>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="font-data text-sm font-bold">{r.programLabel}</p>
+            <FlightInfoPopover r={r} searchedAt={searchedAt} compact />
+          </div>
           <p className="text-[10px] text-ink-soft">({r.carriers?.length ? `Operated by ${r.carriers.map(airlineName).join(" and ")}` : "Operating airline not provided"})</p>
           <p className="mt-1 font-data text-xs">{r.origin}→{r.destination} · {r.departTime}–{r.arriveTime}{r.arrivesNextDay ? "+1" : ""}</p>
           <p className="text-[10px] text-ink-soft">
@@ -134,7 +171,9 @@ function OtherRow({ r, searchedAt, pax }) {
             {r.layovers?.length ? ` · layover ${r.layovers.map(formatDuration).join(", ")}` : ""} · {formatDuration(r.totalMinutes)}
           </p>
         </div>
-        <span className="rounded bg-paper-deep px-2 py-1 font-data text-xs font-bold">{r.recommendationScore}/100</span>
+        {notRecommended
+          ? <span className="rounded bg-warn/15 px-2 py-1 font-data text-[10px] font-bold uppercase text-warn">Not recommended</span>
+          : <span className="rounded bg-paper-deep px-2 py-1 font-data text-xs font-bold">{r.recommendationScore}/100</span>}
       </div>
       <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs sm:grid-cols-4">
         <span>{r.points.toLocaleString()} pts + <TaxDisplay r={r} /></span>
@@ -142,6 +181,11 @@ function OtherRow({ r, searchedAt, pax }) {
         <span>Economic {r.economicCost == null ? "—" : formatMoney(r.economicCost, BASE_CURRENCY)}</span>
         <span>{r.seats == null ? "Seats unknown" : `${r.seats} seats`}</span>
       </div>
+      {notRecommended && r.exclusionReasons?.length > 0 && (
+        <ul className="mt-2 space-y-1 text-[11px] text-warn">
+          {r.exclusionReasons.map((reason) => <li key={reason}>• {reason}</li>)}
+        </ul>
+      )}
       <p className="mt-1 text-[10px] text-ink-soft">Checked {when(r.checkedAt || searchedAt)} · {cashBasis(r)}</p>
       <RedemptionActions row={r} pax={pax} compact />
     </li>
@@ -267,15 +311,30 @@ export default function RecommendationPanel({ results, prefs, onPrefsChange, dat
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {rec.cards.slice(0, 5).map(([title, r]) => <Card key={`${key}-${title}-${r.id}`} title={title} r={r} searchedAt={searchedAt} pax={pax} />)}
               </div>
-              {rec.other.length > 0 && (
-                <details className="mt-3 rounded border border-line bg-paper p-2">
-                  <summary className="cursor-pointer text-xs font-bold uppercase tracking-[0.12em] text-heading">
-                    Other qualifying redemptions ({rec.other.length})
-                  </summary>
-                  <ul className="mt-2 space-y-2">
-                    {rec.other.map((r) => <OtherRow key={`${key}-other-${r.id}`} r={r} searchedAt={searchedAt} pax={pax} />)}
-                  </ul>
-                </details>
+
+              {(rec.other.length > 0 || rec.notRecommended?.length > 0) && (
+                <section className="mt-3 rounded border-2 border-line bg-paper p-3" aria-label="Other qualifying redemptions or not recommended flights">
+                  <h4 className="text-xs font-bold uppercase tracking-[0.12em] text-heading">Other qualifying redemptions or not recommended flights</h4>
+                  <p className="mt-1 text-[11px] text-ink-soft">Qualified alternatives passed the recommendation settings but did not win a featured category. Not-recommended rows failed one or more recommendation preferences and show the reason.</p>
+
+                  {rec.other.length > 0 && (
+                    <details open className="mt-3 rounded border border-line bg-card p-2">
+                      <summary className="cursor-pointer text-xs font-bold uppercase tracking-[0.1em] text-deal">Other qualified flights ({rec.other.length})</summary>
+                      <ul className="mt-2 space-y-2">
+                        {rec.other.map((r) => <AlternativeRow key={`${key}-other-${r.id}`} r={r} searchedAt={searchedAt} pax={pax} />)}
+                      </ul>
+                    </details>
+                  )}
+
+                  {rec.notRecommended?.length > 0 && (
+                    <details className="mt-2 rounded border border-warn bg-warn/5 p-2">
+                      <summary className="cursor-pointer text-xs font-bold uppercase tracking-[0.1em] text-warn">Not recommended under current settings ({rec.notRecommended.length})</summary>
+                      <ul className="mt-2 space-y-2">
+                        {rec.notRecommended.map((r) => <AlternativeRow key={`${key}-rejected-${r.id}`} r={r} searchedAt={searchedAt} pax={pax} status="notRecommended" />)}
+                      </ul>
+                    </details>
+                  )}
+                </section>
               )}
             </div>
           ))}

@@ -24,14 +24,14 @@ const activeSource = [
   "worker/index.js",
 ].map(read).join("\n");
 
-assert.equal(pkg.version, "11.3.1");
+assert.equal(pkg.version, "11.3.2");
 assert.equal(lock.version, pkg.version);
 assert.equal(lock.packages[""].version, pkg.version);
 assert.match(pkg.engines.node, />=20/);
 assert.ok(pkg.scripts.build && pkg.scripts.test && pkg.scripts["deploy:dry"]);
 console.log("✓ deployment: package metadata and scripts are consistent");
 
-assert.equal(wrangler.name, "pointsboard-reward-flights");
+assert.equal(wrangler.name, "flights");
 assert.equal(wrangler.main, "worker/index.js");
 assert.equal(wrangler.assets.directory, "./dist");
 assert.equal(wrangler.assets.binding, "ASSETS");

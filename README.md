@@ -1,87 +1,92 @@
-# ✈ PointsBoard v11.3.1
+# ✈ PointsBoard v11.3.2
 
-PointsBoard combines live reward-flight availability, live cash-fare comparison, multi-currency award fees, CPP analysis, exact same-flight grouping, nearby-airport expansion, and official redemption handoff in one React application deployed through Cloudflare Workers.
+PointsBoard combines live reward-flight availability, live cash-fare comparison, multi-currency award fees, CPP analysis, personalized recommendations, exact same-flight grouping, nearby-airport expansion, and official redemption handoff in one React application deployed through Cloudflare Workers.
+
+## Existing deployment
+
+The active GitHub repository and Cloudflare Worker are both named **`flights`**.
+
+- Production URL: `https://flights.benson-lin.workers.dev`
+- Health check: `https://flights.benson-lin.workers.dev/api/health`
+- Production branch: `main`
+- Build command: `npm run build`
+- Deploy command: `npx wrangler deploy`
 
 ## Start here
 
 1. Read `START_HERE.md`.
-2. Follow the existing beginner deployment guide in `docs/PointsBoard_v11_2_1_Beginner_Setup_Guide.pdf`. The GitHub and Cloudflare deployment screens and steps remain applicable to v11.3.
-3. Read `docs/PointsBoard_v11_3_Feature_Guide.md` for the three new workflows.
-4. Upload the project contents to GitHub with `package.json` and `wrangler.jsonc` at the repository root.
-5. Connect the repository to Cloudflare Workers Builds.
-6. Add `SEATS_AERO_API_KEY` and `SERPAPI_KEY` as encrypted Cloudflare secrets.
-7. Verify the deployment at `/api/health`.
+2. Follow `docs/PointsBoard_v11_3_2_Beginner_Setup_and_Update_Guide.docx`.
+3. For an existing deployment, follow `UPDATE_INSTRUCTIONS_V11_3_2.md`.
+4. Upload or push the project contents so `package.json` and `wrangler.jsonc` remain at the repository root.
+5. Wait for GitHub Actions and Cloudflare Workers Builds to turn green.
+6. Confirm `/api/health` reports version `11.3.2` and both configured flags as `true`.
 
-## What is new in v11.3
+## New in v11.3.2
 
-### Exact Same Flight view
+### Light-green recommendation summary
 
-A new result tab groups rows only when these source fields match:
+Every featured recommendation groups these related decision measures inside one light-green panel:
 
-- departure date;
-- origin and destination;
-- cabin;
-- complete source-supplied flight-number sequence.
-
-Each loyalty-program row keeps these values separate:
-
-- points and taxes;
-- exact or benchmark cash fare;
 - economic redemption cost;
+- estimated economic savings;
 - realized CPP;
-- seats and update time;
-- cash-fare provenance.
+- confidence.
 
-Rows without complete flight numbers are never silently merged into an exact group.
+Cash fare and award price remain separate so the interface does not equate cash fare with economic cost.
 
-### Official redemption handoff
+### Flight-detail icon
 
-Every reward row now provides:
+Each featured and alternative recommendation includes a flight icon. When selected, the popup shows available source-supplied details:
 
-- an official loyalty-program award-booking link;
-- a best-effort route/date/passenger prefill for supported programs;
-- a copyable booking packet when a dependable prefill is unavailable;
-- a reminder to verify availability before transferring points.
+- flight number sequence;
+- route;
+- departure date and time;
+- arrival time and next-day indicator;
+- operating airline;
+- award-seat count, or a count-not-supplied message;
+- availability check time.
 
-### Nearby-airport search
+### Collapsible shared FX panel
 
-A saved route may expand its origin, destination, or both using:
+The FX conversion section can be hidden and reopened. The same entered rates remain shared across:
 
-- curated metropolitan airport groups;
-- a 25-, 50-, or 100-mile radius;
-- a maximum of five airports per side;
-- a maximum of 12 combinations per saved route;
-- a maximum of 30 combinations across one search;
-- four concurrent live requests.
+- Recommendations + Results;
+- Exact Same Flight;
+- Cash Fares.
 
-The base route is always included and duplicate expanded routes are removed.
+### Qualified and not-recommended alternatives
 
-## Independent verification
+A new section distinguishes:
 
-The v11.3 audit passed:
+- **Other qualified flights** - passed the recommendation settings but did not win a featured category.
+- **Not recommended under current settings** - failed one or more preferences and displays the reasons.
 
-- 36 core calculation and normalization groups;
-- 9 Function and Worker groups;
-- 16 live-shaped simulation groups;
-- 1 recommendation regression suite;
-- 12 currency and provenance groups;
-- 4 v11.3 feature groups;
-- 6 deployment-readiness groups;
-- TypeScript JSX/JavaScript syntax parsing across active source files;
-- interactive-preview browser rendering and smoke interaction.
+Up to five not-recommended rows are shown per route/date/cabin group.
 
-Total: **84 named groups/checks**, plus syntax parsing and browser smoke interaction. See `AUDIT_EXECUTION_LOG_V11_3.txt` and `docs/PointsBoard_v11_3_Independent_Feature_Audit.md`.
+## Features retained
+
+- Saved Routes
+- Reward program, cabin, schedule, stops, layover, duration, and connection-airport filters
+- Recommended Redemptions and Original Reward Results
+- Exact Same Flight grouping across loyalty programs
+- Live Cash Fares
+- Nearby-airport expansion
+- Official redemption handoff and copyable booking packet
+- Original-currency award taxes and manual USD FX conversion
+- Strict Demo/Live separation
 
 ## Strict data rules
 
 - Demo mode uses only clearly marked local scenarios and makes no provider API calls.
-- Live mode rejects Demo rows and legacy synthetic cash-fare rows.
-- Missing live cash fares remain unavailable; the app does not invent a fare.
-- Non-USD award taxes retain their original currency and require a manual USD FX rate before CPP and economic cost are calculated.
-- Cash fare, economic redemption cost, estimated savings, and realized CPP remain separate measures.
-- Same-flight grouping never substitutes a probable schedule match for an exact group.
+- Live mode rejects Demo rows and synthetic cash-fare fallbacks.
+- Missing live cash fares remain unavailable.
+- Foreign-currency award fees retain the original currency and require a valid USD FX rate before CPP and economic cost are completed.
+- Missing taxes are not interpreted as zero.
+- Same-flight grouping requires a complete source-supplied flight-number sequence.
 
-## Local verification
+## Verification
+
+Run locally or through GitHub Actions:
 
 ```bash
 npm ci
@@ -90,18 +95,20 @@ npm run build
 npm run deploy:dry
 ```
 
-## Cloudflare deployment
+The source-level audit passed all active calculation, filtering, currency, recommendation, Worker, live-shaped simulation, exact-flight, nearby-airport, UI-retention, and v11.3.2 enhancement checks. See:
 
-```bash
-npx wrangler deploy
-```
+- `AUDIT_EXECUTION_LOG_V11_3_2.txt`
+- `INDEPENDENT_AUDIT_V11_3_2.md`
+- `RELEASE_NOTES_V11_3_2.md`
 
-Secrets:
+## Cloudflare secrets
 
-- `SEATS_AERO_API_KEY` — required for Live award search
-- `SERPAPI_KEY` — required for Live cash fares and cash-based CPP
-- `ALLOWED_ORIGINS` — optional; normally blank for same-origin hosting
+Add these as encrypted runtime secrets, not GitHub files:
 
-## Audit limitation
+- `SEATS_AERO_API_KEY`
+- `SERPAPI_KEY`
+- `ALLOWED_ORIGINS` is normally left blank for same-origin hosting.
 
-The execution environment could not download npm dependencies because its npm mirror returned HTTP 503 and direct DNS access was unavailable. Therefore a fresh Vite production bundle was not generated locally. The source passed all Node tests and TypeScript syntax parsing, and the standalone interactive preview rendered successfully in Chromium. The first GitHub Actions and Cloudflare Workers Build runs remain the final clean-build gate.
+## Build-environment note
+
+The isolated audit environment could not download Vite from its npm mirror, so the final clean bundle must be confirmed through the connected GitHub Actions and Cloudflare Workers Builds pipeline. Source tests and JavaScript/JSX syntax checks passed.
