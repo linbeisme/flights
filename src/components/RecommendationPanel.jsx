@@ -1,0 +1,286 @@
+import { useMemo, useState } from "react";
+import { groupRecommendationResults, validateRecommendationPrefs } from "../api/recommendationEngine.js";
+import { formatDuration } from "../api/flightApi.js";
+import { AIRLINE_NAMES } from "../data/defaults.js";
+import { BASE_CURRENCY, formatMoney } from "../api/currency.js";
+import RedemptionActions from "./RedemptionActions.jsx";
+
+const airlineName = (code) => AIRLINE_NAMES[code] || code;
+
+function cashBasis(r) {
+  const labels = {
+    "exact-itinerary": "Exact itinerary fare",
+    "schedule-match": "Probable schedule match",
+    "same-carrier-benchmark": "Same operating-airline benchmark",
+    "route-cabin-benchmark": "Route/cabin median benchmark",
+    "demo-illustrative": "Illustrative demo fare",
+  };
+  return labels[r.cashMatchType] || "Cash basis unavailable";
+}
+
+function when(value) {
+  if (!value) return "Not supplied by source";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+  return d.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+function TaxDisplay({ r }) {
+  if (r.taxesOriginal == null) {
+    return <span className="text-warn">Taxes/fees not supplied</span>;
+  }
+  const original = formatMoney(r.taxesOriginal, r.taxesCurrency);
+  if (r.taxesCurrency === BASE_CURRENCY) return (
+    <>
+      {original}
+      {r.taxesCurrencySource === "legacy-usd-assumption" && (
+        <span className="block text-[10px] font-normal text-warn">Currency not supplied by source; treated as USD</span>
+      )}
+    </>
+  );
+  return (
+    <>
+      {original}
+      <span className="block text-[10px] font-normal text-ink-soft">
+        {r.taxesUsd == null ? "FX rate required" : `≈ ${formatMoney(r.taxesUsd, BASE_CURRENCY)} at ${r.fxRateToUsd} USD/${r.taxesCurrency}`}
+      </span>
+    </>
+  );
+}
+
+function RouteDetails({ r }) {
+  const layoverText = r.layovers?.length
+    ? ` · layover${r.layovers.length > 1 ? "s" : ""} ${r.layovers.map(formatDuration).join(", ")}`
+    : "";
+  return (
+    <>
+      <p className="mt-2 font-data text-sm">{r.origin}→{r.destination} · {r.departTime}–{r.arriveTime}{r.arrivesNextDay ? "+1" : ""}</p>
+      <p className="mt-1 text-xs text-ink-soft">
+        {r.stops === 0 ? "Nonstop" : `${r.stops ?? "?"} stop${r.stops === 1 ? "" : "s"}${r.connections?.length ? ` via ${r.connections.join(", ")}` : ""}`} · {formatDuration(r.totalMinutes)}{layoverText}
+      </p>
+    </>
+  );
+}
+
+function Card({ title, r, searchedAt, pax }) {
+  return (
+    <article className="rounded border-2 border-line bg-card p-3">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-magenta">{title}</p>
+          <h3 className="mt-1 font-data text-base font-bold">{r.programLabel}</h3>
+          <p className="text-[11px] font-light text-ink-soft">
+            ({r.carriers?.length ? `Operated by ${r.carriers.map(airlineName).join(" and ")}` : "Operating airline not provided"})
+          </p>
+        </div>
+        <span className="rounded bg-deal-soft px-2 py-1 font-data text-xs font-bold text-deal">{r.recommendationScore}/100</span>
+      </div>
+
+      <RouteDetails r={r} />
+      <p className="mt-1 text-xs font-semibold text-deal">
+        {r.seats == null ? "Award available — seat count not provided" : `${r.seats} award seat${r.seats === 1 ? "" : "s"} available`}
+      </p>
+
+      <div className="mt-3 grid grid-cols-2 gap-2 font-data text-xs">
+        <div>
+          <span className="text-ink-soft">Redeem</span>
+          <div className="font-bold">{r.points.toLocaleString()} pts + <TaxDisplay r={r} /></div>
+        </div>
+        <div>
+          <span className="text-ink-soft">Cash fare</span>
+          <div className="font-bold">{r.cash == null ? "Unavailable" : formatMoney(r.cash, r.cashCurrency || BASE_CURRENCY)}</div>
+        </div>
+        <div>
+          <span className="text-ink-soft">Economic cost</span>
+          <div className="font-bold text-deal">{r.economicCost == null ? "FX/CPP data required" : formatMoney(r.economicCost, BASE_CURRENCY)}</div>
+        </div>
+        <div>
+          <span className="text-ink-soft">Economic savings</span>
+          <div className="font-bold">{r.savingsVsCash == null ? "—" : formatMoney(r.savingsVsCash, BASE_CURRENCY)}</div>
+        </div>
+        <div>
+          <span className="text-ink-soft">Realized CPP</span>
+          <div className="font-bold">{r.cpp == null ? "—" : `${r.cpp.toFixed(2)}¢`}</div>
+        </div>
+        <div>
+          <span className="text-ink-soft">Confidence</span>
+          <div className="font-bold">{r.confidence}</div>
+        </div>
+      </div>
+
+      <p className="mt-2 rounded border border-line bg-paper-deep px-2 py-1 text-[11px] text-ink-soft">
+        Cash basis: <span className="font-semibold text-ink">{cashBasis(r)}</span>
+      </p>
+      <div className="mt-2 text-[10px] text-ink-soft">
+        <p>Availability source updated: <span className="font-semibold text-ink">{when(r.availabilityUpdatedAt)}</span></p>
+        <p>Availability checked: <span className="font-semibold text-ink">{when(r.checkedAt || searchedAt)}</span></p>
+      </div>
+      <RedemptionActions row={r} pax={pax} />
+      <ul className="mt-3 space-y-1 text-xs text-ink-soft">{r.recommendationReasons.map((x) => <li key={x}>✓ {x}</li>)}</ul>
+    </article>
+  );
+}
+
+function OtherRow({ r, searchedAt, pax }) {
+  return (
+    <li className="rounded border border-line bg-card p-2.5">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <p className="font-data text-sm font-bold">{r.programLabel}</p>
+          <p className="text-[10px] text-ink-soft">({r.carriers?.length ? `Operated by ${r.carriers.map(airlineName).join(" and ")}` : "Operating airline not provided"})</p>
+          <p className="mt-1 font-data text-xs">{r.origin}→{r.destination} · {r.departTime}–{r.arriveTime}{r.arrivesNextDay ? "+1" : ""}</p>
+          <p className="text-[10px] text-ink-soft">
+            {r.stops === 0 ? "Nonstop" : `${r.stops ?? "?"} stop${r.stops === 1 ? "" : "s"}${r.connections?.length ? ` via ${r.connections.join(", ")}` : ""}`}
+            {r.layovers?.length ? ` · layover ${r.layovers.map(formatDuration).join(", ")}` : ""} · {formatDuration(r.totalMinutes)}
+          </p>
+        </div>
+        <span className="rounded bg-paper-deep px-2 py-1 font-data text-xs font-bold">{r.recommendationScore}/100</span>
+      </div>
+      <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs sm:grid-cols-4">
+        <span>{r.points.toLocaleString()} pts + <TaxDisplay r={r} /></span>
+        <span>Cash {r.cash == null ? "unavailable" : formatMoney(r.cash, r.cashCurrency || BASE_CURRENCY)}</span>
+        <span>Economic {r.economicCost == null ? "—" : formatMoney(r.economicCost, BASE_CURRENCY)}</span>
+        <span>{r.seats == null ? "Seats unknown" : `${r.seats} seats`}</span>
+      </div>
+      <p className="mt-1 text-[10px] text-ink-soft">Checked {when(r.checkedAt || searchedAt)} · {cashBasis(r)}</p>
+      <RedemptionActions row={r} pax={pax} compact />
+    </li>
+  );
+}
+
+export default function RecommendationPanel({ results, prefs, onPrefsChange, dataMode, cppLibrary, cppLibraryError, fxRates, searchedAt, pax = 1 }) {
+  const [open, setOpen] = useState(true);
+  const validation = useMemo(() => validateRecommendationPrefs(prefs), [prefs]);
+  const groups = useMemo(
+    () => groupRecommendationResults(results, prefs, cppLibrary, fxRates),
+    [results, prefs, cppLibrary, fxRates]
+  );
+  if (!results.length) return null;
+  const set = (key, value) => onPrefsChange((p) => ({ ...p, [key]: value }));
+  const cppMeta = cppLibrary?.meta || {};
+  const missingFx = results.filter((r) => r.fxStatus === "missing-rate").length;
+  const missingTaxes = results.filter((r) => r.fxStatus === "taxes-unavailable").length;
+
+  return (
+    <section className="mb-4 rounded border-2 border-ink bg-paper-deep p-3" aria-label="Recommended redemptions">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="text-sm font-bold uppercase tracking-[0.15em] text-heading">Recommended redemptions</h2>
+          <p className="mt-1 text-xs text-ink-soft">
+            Cash fare, economic redemption cost, savings, and realized CPP are separate measures. Valuations: {cppMeta.source || "loading"}{cppMeta.asOf ? `, as of ${cppMeta.asOf}` : ""}.
+          </p>
+        </div>
+        <button type="button" onClick={() => setOpen((v) => !v)} className="rounded border border-line bg-card px-3 py-1.5 text-xs font-semibold">
+          {open ? "Hide settings" : "Show settings"}
+        </button>
+      </div>
+
+      {cppLibraryError && (
+        <p role="alert" className="mt-2 rounded border border-magenta bg-magenta/10 px-2 py-1 text-xs text-magenta">
+          CPP library unavailable: {cppLibraryError}. Economic-cost recommendations remain incomplete until the canonical JSON loads.
+        </p>
+      )}
+      {missingFx > 0 && (
+        <p role="alert" className="mt-2 rounded border border-warn bg-warn/10 px-2 py-1 text-xs text-warn">
+          {missingFx} result{missingFx === 1 ? "" : "s"} use foreign-currency taxes/fees. Enter the required manual FX rate above before those rows can receive complete CPP and economic-cost rankings.
+        </p>
+      )}
+      {missingTaxes > 0 && (
+        <p role="alert" className="mt-2 rounded border border-warn bg-warn/10 px-2 py-1 text-xs text-warn">
+          {missingTaxes} result{missingTaxes === 1 ? "" : "s"} do not include taxes/fees from the source. The app leaves those amounts unknown and suppresses CPP and economic-cost ranking rather than assuming zero.
+        </p>
+      )}
+      {dataMode === "demo" && (
+        <p className="mt-2 rounded border border-warn bg-warn/10 px-2 py-1 font-data text-xs font-bold text-warn">
+          DEMO MODE — recommendations use pre-built illustrative award and fare data.
+        </p>
+      )}
+      {!validation.valid && (
+        <div role="alert" className="mt-2 rounded border border-magenta bg-magenta/10 px-3 py-2 text-xs text-magenta">
+          <p className="font-semibold">Fix recommendation settings before ranking:</p>
+          <ul className="mt-1 list-disc pl-5">{validation.errors.map((error) => <li key={error}>{error}</li>)}</ul>
+        </div>
+      )}
+      {validation.valid && validation.warnings.length > 0 && (
+        <p className="mt-2 rounded border border-deal bg-deal-soft px-2 py-1 text-xs text-deal">{validation.warnings.join(" ")} Overnight windows are supported.</p>
+      )}
+      {validation.valid && groups.some(([, rec]) => rec.usedFallback) && (
+        <p className="mt-2 rounded border border-warn bg-warn/10 px-2 py-1 text-xs text-warn">
+          For one or more route/cabin groups, no itinerary passed every preference or all required FX rates were missing, so the panel clearly ranks the closest available options.
+        </p>
+      )}
+
+      {open && (
+        <div className="mt-3 grid gap-3 rounded border border-line bg-card p-3 md:grid-cols-4">
+          <label className="text-xs">Priority preset
+            <select value={prefs.preset} onChange={(e) => set("preset", e.target.value)} className="mt-1 w-full rounded border border-line bg-paper px-2 py-2">
+              <option value="balanced">Balanced</option>
+              <option value="lowestCost">Lowest cost</option>
+              <option value="fastest">Fastest journey</option>
+              <option value="convenience">Convenience</option>
+            </select>
+          </label>
+          <label className="text-xs">Maximum stops
+            <select value={prefs.maxStops} onChange={(e) => set("maxStops", Number(e.target.value))} className="mt-1 w-full rounded border border-line bg-paper px-2 py-2">
+              <option value={0}>Nonstop</option><option value={1}>Up to 1</option><option value={2}>Up to 2</option>
+            </select>
+          </label>
+          <label className="text-xs">Preferred layover hours
+            <div className="mt-1 flex gap-1">
+              <input aria-label="Minimum layover hours" type="number" min="0" step="0.25" value={prefs.layoverMinH} onChange={(e) => set("layoverMinH", Number(e.target.value))} className="w-full rounded border border-line bg-paper px-2 py-2" />
+              <input aria-label="Maximum layover hours" type="number" min="0" step="0.25" value={prefs.layoverMaxH} onChange={(e) => set("layoverMaxH", Number(e.target.value))} className="w-full rounded border border-line bg-paper px-2 py-2" />
+            </div>
+          </label>
+          <label className="text-xs">Maximum duration (hours)
+            <input type="number" min="0.25" step="0.25" value={prefs.maxDurationH} onChange={(e) => set("maxDurationH", Number(e.target.value))} className="mt-1 w-full rounded border border-line bg-paper px-2 py-2" />
+          </label>
+          <label className="text-xs">Departure window (0–23.75)
+            <div className="mt-1 flex gap-1">
+              <input aria-label="Departure window start hour" type="number" min="0" max="23.75" step="0.25" value={prefs.departStart} onChange={(e) => set("departStart", Number(e.target.value))} className="w-full rounded border border-line bg-paper px-2 py-2" />
+              <input aria-label="Departure window end hour" type="number" min="0" max="23.75" step="0.25" value={prefs.departEnd} onChange={(e) => set("departEnd", Number(e.target.value))} className="w-full rounded border border-line bg-paper px-2 py-2" />
+            </div>
+          </label>
+          <label className="text-xs">Arrival window (0–23.75)
+            <div className="mt-1 flex gap-1">
+              <input aria-label="Arrival window start hour" type="number" min="0" max="23.75" step="0.25" value={prefs.arriveStart} onChange={(e) => set("arriveStart", Number(e.target.value))} className="w-full rounded border border-line bg-paper px-2 py-2" />
+              <input aria-label="Arrival window end hour" type="number" min="0" max="23.75" step="0.25" value={prefs.arriveEnd} onChange={(e) => set("arriveEnd", Number(e.target.value))} className="w-full rounded border border-line bg-paper px-2 py-2" />
+            </div>
+            <span className="mt-1 block text-[10px] text-ink-soft">Start later than end means the window crosses midnight.</span>
+          </label>
+          <label className="text-xs">Required connection (include)
+            <input value={prefs.requiredAirports} onChange={(e) => set("requiredAirports", e.target.value.toUpperCase())} className="mt-1 w-full rounded border border-line bg-paper px-2 py-2 font-data" placeholder="HND,NRT" />
+          </label>
+          <label className="text-xs">Preferred connections
+            <input value={prefs.preferredAirports} onChange={(e) => set("preferredAirports", e.target.value.toUpperCase())} className="mt-1 w-full rounded border border-line bg-paper px-2 py-2 font-data" placeholder="HND,NRT,ICN" />
+          </label>
+          <label className="text-xs">Avoid connections (exclude)
+            <input value={prefs.avoidAirports} onChange={(e) => set("avoidAirports", e.target.value.toUpperCase())} className="mt-1 w-full rounded border border-line bg-paper px-2 py-2 font-data" placeholder="LHR,CDG" />
+          </label>
+        </div>
+      )}
+
+      {validation.valid && (
+        <div className="mt-3 space-y-4">
+          {groups.map(([key, rec]) => (
+            <div key={key}>
+              <h3 className="mb-2 border-b border-line pb-1 font-data text-sm font-bold">{key}</h3>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {rec.cards.slice(0, 5).map(([title, r]) => <Card key={`${key}-${title}-${r.id}`} title={title} r={r} searchedAt={searchedAt} pax={pax} />)}
+              </div>
+              {rec.other.length > 0 && (
+                <details className="mt-3 rounded border border-line bg-paper p-2">
+                  <summary className="cursor-pointer text-xs font-bold uppercase tracking-[0.12em] text-heading">
+                    Other qualifying redemptions ({rec.other.length})
+                  </summary>
+                  <ul className="mt-2 space-y-2">
+                    {rec.other.map((r) => <OtherRow key={`${key}-other-${r.id}`} r={r} searchedAt={searchedAt} pax={pax} />)}
+                  </ul>
+                </details>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}

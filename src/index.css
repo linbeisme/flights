@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+/* ── PointsBoard design tokens ─────────────────────────────
+   Aesthetic: an ops console laid over aeronautical chart
+   paper. Day theme = chart paper; night theme = the same
+   chart under red-lit cockpit dark mode. All data (codes,
+   points, times, CPP) is set in monospace. */
+@theme {
+  --color-paper: #f5f6f3;
+  --color-paper-deep: #eceee8;
+  --color-card: #ffffff;
+  --color-ink: #16233a;
+  --color-ink-soft: #4a586f;
+  --color-heading: #374253; /* ink-soft darkened 25% for section headings */
+  --color-line: #c9cfd8;
+  --color-magenta: #c2347b;
+  --color-magenta-deep: #a02463;
+  --color-deal: #1e7f4f;
+  --color-deal-soft: #e2f1e8;
+  --color-warn: #a96a1c;
+  --color-fresh: #d11f2f;
+
+  --font-data: ui-monospace, "SFMono-Regular", "Menlo", "Consolas", monospace;
+}
+
+/* Night theme: toggled by adding .dark to <html> */
+.dark {
+  --color-paper: #121924;
+  --color-paper-deep: #0c121b;
+  --color-card: #1a2332;
+  --color-ink: #e7ebf2;
+  --color-ink-soft: #98a5ba;
+  --color-heading: #b9c5d8; /* night: headings go brighter, not darker, to stay prominent */
+  --color-line: #2c3a50;
+  --color-magenta: #e05a9d;
+  --color-magenta-deep: #c2347b;
+  --color-deal: #4cc98a;
+  --color-deal-soft: #14311f;
+  --color-warn: #d9a24a;
+  --color-fresh: #ff5a66;
+}
+
+html {
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+/* Quality floor: visible keyboard focus everywhere */
+:focus-visible {
+  outline: 2px solid var(--color-magenta);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+input[type="range"] {
+  accent-color: var(--color-magenta);
+}
+
+/* Native pickers follow the theme */
+.dark input[type="date"],
+.dark input[type="number"],
+.dark select {
+  color-scheme: dark;
+}
+
+/* Slow flash for the operating-airline icon — draws the eye without
+   being frantic. ~1.6s ease loop between full and reduced opacity. */
+@keyframes pb-slow-flash {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+.pb-flash-slow { animation: pb-slow-flash 1.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .pb-flash-slow { animation: none; }
+}

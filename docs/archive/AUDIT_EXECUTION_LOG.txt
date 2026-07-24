@@ -1,0 +1,122 @@
+
+> reward-flights@11.2.0 test
+> node test-logic.mjs && node test-functions.mjs && node test-simulation.mjs && node test-recommendation.mjs && node test-currency.mjs
+
+✓ CPP exact formula: ((cash − taxes) / points) × 100
+✓ Default routes: 10 from TPE + 12 from LAX, all future, flex 0
+✓ Fixture rows carry internally consistent CPP
+✓ Filter: cabin selection
+✓ Filter: program selection
+✓ Filter: departure & arrival time windows
+✓ Filter: overnight departure window crosses midnight
+✓ Filter: cumulative stops (Direct / ≤1 incl. direct / ≤2+ incl. all)
+✓ Filter: connection airport codes
+✓ Filter: layover min/max hours
+✓ Filter: total travel time min/max hours
+✓ Filter: passenger count hides too-few-seat rows, keeps unknown
+✓ Sorting: lowest fees/taxes first
+✓ Route selection limit raised to 5
+✓ Sorting: CPP desc / points asc / duration asc / stops / layover
+✓ addDays: UTC-safe across month/year/leap edges
+✓ Cash estimator (fallback): deterministic and cabin-monotonic
+✓ Program colors: nine distinct badge colors
+✓ parseCarriers: splits, trims, uppercases, dedupes, validates
+✓ Airline names resolve for the alliance carriers we expect
+✓ Redeem links: every program has a valid https URL
+✓ Cash source values are the three the UI color-codes
+✓ Dropdown type-to-jump: cycles through codes sharing a first letter
+✓ Cabin colors: four distinct colors defined
+✓ Airport catalog: 400+ airports incl. ONT/SNA/LGB/BUR/PEK, all valid
+✓ Manual airport entry: normalizeAirportInput accepts typed values
+✓ Cash filters: airlines multi-select
+✓ Cash filters: cumulative stops incl. direct
+✓ Cash filters: connection airport codes
+✓ Cash filters: total travel time bounds (hours)
+✓ Cash filters: layover duration bounds (hours)
+✓ Cash filters: departure & arrival windows exclude schedule-less rows only when narrowed
+✓ Demo-data guard: flags rows marked demo, never live rows
+✓ Saved searches: reward history cap is 20, cash history cap is 20
+✓ Program mapping covers all nine required programs
+✓ Cash fare matcher: exact flight numbers outrank route/cabin benchmark
+✓ Cash fare matcher: unmatched live list falls back to median benchmark
+
+All 37 core logic test groups passed.
+✓ search: OPTIONS preflight returns CORS
+✓ search: missing key → 500 with guidance
+✓ search: invalid airport code → 400
+✓ search: invalid date format → 400
+✓ search: malformed trips id rejected
+✓ search: POST → 405
+✓ cashfare: estimate fallback deterministic ($4207 LAX→TPE J)
+✓ cashfare: invalid date → 400
+✓ cashfare: median price selection (TPE→SIN screenshot data → $151, not $95)
+✓ cashfare: list=1 estimate fallback returns one marked row (with empty layovers)
+✓ worker: /api/search routed to the seats.aero handler
+✓ worker: /api/cashfare routed and returns estimate fallback
+✓ worker: unknown /api route → 404
+✓ worker: non-API paths served from static assets
+
+All function tests passed.
+✓ Simulation: date window ±1 forwarded to seats.aero as start/end
+✓ Simulation: 3 trip-level itineraries normalized; excluded program dropped
+✓ Simulation: operating carriers parsed from trip data
+✓ Simulation: exact live cash matches vs marked estimate benchmarks
+✓ Simulation: connections, layovers, times, seats, taxes normalized
+✓ Simulation: CPP computed with the exact formula on live numbers
+✓ Simulation: cumulative stops filter — '1' includes direct, '2+' includes all
+✓ Simulation: all six sort orders hold on live-shaped data
+✓ Simulation: passenger seat filter works on live seat counts
+✓ Cash tab: rows sorted by price across cabins, cheapest first
+✓ Cash tab: cabin tagging and live/estimate sources per row
+✓ Cash tab: schedule fields, connections, and departMin normalized
+✓ Cash tab: network failure degrades to a marked estimate row
+✓ Cash tab v9: arrival minutes and layover durations normalized
+✓ Cash tab v9: full filter suite works on live-shaped rows
+✓ Data-integrity guard: live pipelines never trip the red flag
+
+Simulation complete: all 16 scenario groups passed against the real live pipeline.
+{
+  "routes": 7,
+  "rows": 20,
+  "cppPrograms": 9,
+  "recommendationCards": [
+    [
+      "Best overall",
+      "LHR-UA-1"
+    ],
+    [
+      "Lowest economic cost",
+      "LHR-UA-1"
+    ],
+    [
+      "Best realized CPP",
+      "LHR-AC-1"
+    ],
+    [
+      "Fastest acceptable",
+      "LHR-UA-1"
+    ],
+    [
+      "Best nonstop",
+      "LHR-UA-1"
+    ]
+  ],
+  "isolatedTop": "LHR-UA-1",
+  "validationErrors": [
+    "Minimum layover cannot exceed maximum layover."
+  ]
+}
+✓ Currency: ISO normalization and safe formatting
+✓ Taxes: unavailable source data stays unknown instead of becoming zero
+✓ Seats: known unreliable zero counts are shown as unknown
+✓ Currency: provider field detected; legacy omission is explicitly marked
+✓ FX: non-USD fee is blocked without manual rate
+✓ FX: manual rate converts into USD
+✓ Reward result: CPP and economic cost remain unavailable until FX is entered
+✓ Reward filters: include and exclude connection-airport rules
+✓ Cash provenance: same-airline benchmark outranks route-wide benchmark
+✓ Recommendations: required and avoided connections are enforced
+✓ Recommendations: up to five non-featured alternatives are returned
+✓ Demo coverage: foreign currencies, carriers, seats, and timestamps are present
+
+All 12 currency, provenance, and expanded recommendation test groups passed.

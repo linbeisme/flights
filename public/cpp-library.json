@@ -1,0 +1,215 @@
+{
+  "schema": "partner-redemption-comparator.cpp-library.v2",
+  "source": "TPG July 2026",
+  "asOf": "2026-07-01",
+  "updatedAt": "2026-07-13T00:00:00.000Z",
+  "sourceUrl": "https://thepointsguy.com/loyalty-programs/monthly-valuations/",
+  "instructions": "Canonical CPP source for PointsBoard. Update this one JSON file; the recommendation engine loads it at runtime. Supported program rows include stable programId values.",
+  "cppLibrary": [
+    {
+      "program": "Aeromexico Rewards",
+      "type": "Airline",
+      "cpp": 0.8,
+      "source": "TPG July 2026",
+      "asOf": "2026-07-01"
+    },
+    {
+      "program": "Air Canada Aeroplan",
+      "type": "Airline",
+      "cpp": 1.5,
+      "source": "TPG July 2026",
+      "asOf": "2026-07-01",
+      "programId": "aeroplan"
+    },
+    {
+      "program": "Alaska Airlines Atmos Rewards",
+      "type": "Airline",
+      "cpp": 1.55,
+      "source": "TPG July 2026",
+      "asOf": "2026-07-01",
+      "programId": "alaska"
+    },
+    {
+      "program": "American Airlines AAdvantage",
+      "type": "Airline",
+      "cpp": 1.4,
+      "source": "TPG July 2026",
+      "asOf": "2026-07-01",
+      "programId": "american"
+    },
+    {
+      "program": "ANA Mileage Club",
+      "type": "Airline",
+      "cpp": 1.4,
+      "source": "TPG July 2026",
+      "asOf": "2026-07-01"
+    },
+    {
+      "program": "Avianca LifeMiles",
+      "type": "Airline",
+      "cpp": 1.45,
+      "source": "TPG July 2026",
+      "asOf": "2026-07-01",
+      "programId": "lifemiles"
+    },
+    {
+      "program": "Avios",
+      "type": "Airline",
+      "cpp": 1.4,
+      "source": "TPG July 2026",
+      "asOf": "2026-07-01"
+    },
+    {
+      "program": "Cathay Asia Miles",
+      "type": "Airline",
+      "cpp": 1.3,
+      "source": "TPG July 2026",
+      "asOf": "2026-07-01"
+    },
+    {
+      "program": "Delta SkyMiles",
+      "type": "Airline",
+      "cpp": 1.2,
+      "source": "TPG July 2026",
+      "asOf": "2026-07-01",
+      "programId": "delta"
+    },
+    {
+      "program": "Emirates Skywards",
+      "type": "Airline",
+      "cpp": 1.2,
+      "source": "TPG July 2026",
+      "asOf": "2026-07-01"
+    },
+    {
+      "program": "Etihad Guest",
+      "type": "Airline",
+      "cpp": 1.2,
+      "source": "TPG July 2026",
+      "asOf": "2026-07-01"
+    },
+    {
+      "program": "Flying Blue",
+      "type": "Airline",
+      "cpp": 1.55,
+      "source": "TPG July 2026",
+      "asOf": "2026-07-01",
+      "programId": "flyingblue"
+    },
+    {
+      "program": "Frontier Miles",
+      "type": "Airline",
+      "cpp": 1.3,
+      "source": "TPG July 2026",
+      "asOf": "2026-07-01"
+    },
+    {
+      "program": "JetBlue TrueBlue",
+      "type": "Airline",
+      "cpp": 1.35,
+      "source": "TPG July 2026",
+      "asOf": "2026-07-01"
+    },
+    {
+      "program": "Qantas Frequent Flyer",
+      "type": "Airline",
+      "cpp": 1.3,
+      "source": "TPG July 2026",
+      "asOf": "2026-07-01"
+    },
+    {
+      "program": "Singapore KrisFlyer",
+      "type": "Airline",
+      "cpp": 1.3,
+      "source": "TPG July 2026",
+      "asOf": "2026-07-01"
+    },
+    {
+      "program": "Southwest Rapid Rewards",
+      "type": "Airline",
+      "cpp": 1.25,
+      "source": "TPG July 2026",
+      "asOf": "2026-07-01"
+    },
+    {
+      "program": "Turkish Airlines Miles&Smiles",
+      "type": "Airline",
+      "cpp": 1.1,
+      "source": "TPG July 2026",
+      "asOf": "2026-07-01",
+      "programId": "turkish"
+    },
+    {
+      "program": "United MileagePlus",
+      "type": "Airline",
+      "cpp": 1.3,
+      "source": "TPG July 2026",
+      "asOf": "2026-07-01",
+      "programId": "united"
+    },
+    {
+      "program": "Virgin Atlantic Flying Club",
+      "type": "Airline",
+      "cpp": 1.5,
+      "source": "TPG July 2026",
+      "asOf": "2026-07-01",
+      "programId": "virginatlantic"
+    },
+    {
+      "program": "Accor Live Limitless",
+      "type": "Hotel",
+      "cpp": 2.0,
+      "source": "TPG July 2026",
+      "asOf": "2026-07-01"
+    },
+    {
+      "program": "Best Western Rewards",
+      "type": "Hotel",
+      "cpp": 0.6,
+      "source": "TPG July 2026",
+      "asOf": "2026-07-01"
+    },
+    {
+      "program": "Choice Privileges",
+      "type": "Hotel",
+      "cpp": 0.7,
+      "source": "TPG July 2026",
+      "asOf": "2026-07-01"
+    },
+    {
+      "program": "Hilton Honors",
+      "type": "Hotel",
+      "cpp": 0.4,
+      "source": "TPG July 2026",
+      "asOf": "2026-07-01"
+    },
+    {
+      "program": "IHG One Rewards",
+      "type": "Hotel",
+      "cpp": 0.6,
+      "source": "TPG July 2026",
+      "asOf": "2026-07-01"
+    },
+    {
+      "program": "Marriott Bonvoy",
+      "type": "Hotel",
+      "cpp": 0.8,
+      "source": "TPG July 2026",
+      "asOf": "2026-07-01"
+    },
+    {
+      "program": "World of Hyatt",
+      "type": "Hotel",
+      "cpp": 1.6,
+      "source": "TPG July 2026",
+      "asOf": "2026-07-01"
+    },
+    {
+      "program": "Wyndham Rewards",
+      "type": "Hotel",
+      "cpp": 0.7,
+      "source": "TPG July 2026",
+      "asOf": "2026-07-01"
+    }
+  ]
+}

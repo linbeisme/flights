@@ -1,0 +1,10 @@
+PointsBoard v11.3.0 build-environment note
+Date: 2026-07-24
+
+The independent audit successfully ran all source-level test suites (84 named groups/checks).
+A fresh npm/Vite production build could not be completed inside the audit sandbox:
+- internal npm mirror: HTTP 503
+- direct npm registry access: DNS EAI_AGAIN
+- partial node_modules did not contain the Vite executable
+
+This is not evidence of a source-code build failure. The included GitHub Actions workflow and Cloudflare Workers Builds configuration must complete npm ci, npm test, npm run build, and the Wrangler dry run after the repository is uploaded.
