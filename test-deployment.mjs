@@ -24,7 +24,7 @@ const activeSource = [
   "worker/index.js",
 ].map(read).join("\n");
 
-assert.equal(pkg.version, "11.3.2");
+assert.equal(pkg.version, "11.3.3");
 assert.equal(lock.version, pkg.version);
 assert.equal(lock.packages[""].version, pkg.version);
 assert.match(pkg.engines.node, />=20/);

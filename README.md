@@ -1,4 +1,4 @@
-# ✈ PointsBoard v11.3.2
+# ✈ PointsBoard v11.3.3
 
 PointsBoard combines live reward-flight availability, live cash-fare comparison, multi-currency award fees, CPP analysis, personalized recommendations, exact same-flight grouping, nearby-airport expansion, and official redemption handoff in one React application deployed through Cloudflare Workers.
 
@@ -15,53 +15,39 @@ The active GitHub repository and Cloudflare Worker are both named **`flights`**.
 ## Start here
 
 1. Read `START_HERE.md`.
-2. Follow `docs/PointsBoard_v11_3_2_Beginner_Setup_and_Update_Guide.docx`.
-3. For an existing deployment, follow `UPDATE_INSTRUCTIONS_V11_3_2.md`.
+2. Follow `docs/PointsBoard_v11_3_2_Beginner_Setup_and_Update_Guide.docx`; the deployment screenshots and Cloudflare steps remain applicable to v11.3.3.
+3. For an existing deployment, follow `UPDATE_INSTRUCTIONS_V11_3_3.md`.
 4. Upload or push the project contents so `package.json` and `wrangler.jsonc` remain at the repository root.
 5. Wait for GitHub Actions and Cloudflare Workers Builds to turn green.
-6. Confirm `/api/health` reports version `11.3.2` and both configured flags as `true`.
+6. Confirm `/api/health` reports version `11.3.3` and both configured flags as `true`.
 
-## New in v11.3.2
+## New in v11.3.3
 
-### Light-green recommendation summary
+### Cabin-safe cash-fare searches
 
-Every featured recommendation groups these related decision measures inside one light-green panel:
+Cash-fare rows are now invalidated whenever the selected cabin set changes after a search. This prevents economy results from remaining on screen after Premium Economy, Business, or First is newly selected. The app displays a notice and requires a fresh live fare lookup for the selected cabin set.
+
+### Exact Same Flight cash fare and CPP pairing
+
+The Exact Same Flight header now places **Best realized CPP** directly beside the cash-fare summary. In each loyalty-program row, the order is now Cash Fare, CPP, then Economic Cost for faster comparison.
+
+### Recommendation filter terminology
+
+The recommendation-settings toggle now reads **Hide Filter** and **Show Filter**.
+
+### Right-aligned flight details and negative-savings warning
+
+The flight-information icon is positioned in the upper-right action area of each featured recommendation card. Negative economic savings display in red and flash at a medium pace, subject to the browser's reduced-motion preference.
+
+### Calculation help
+
+An information icon next to **Recommended Redemptions** explains:
 
 - economic redemption cost;
-- estimated economic savings;
 - realized CPP;
-- confidence.
-
-Cash fare and award price remain separate so the interface does not equate cash fare with economic cost.
-
-### Flight-detail icon
-
-Each featured and alternative recommendation includes a flight icon. When selected, the popup shows available source-supplied details:
-
-- flight number sequence;
-- route;
-- departure date and time;
-- arrival time and next-day indicator;
-- operating airline;
-- award-seat count, or a count-not-supplied message;
-- availability check time.
-
-### Collapsible shared FX panel
-
-The FX conversion section can be hidden and reopened. The same entered rates remain shared across:
-
-- Recommendations + Results;
-- Exact Same Flight;
-- Cash Fares.
-
-### Qualified and not-recommended alternatives
-
-A new section distinguishes:
-
-- **Other qualified flights** - passed the recommendation settings but did not win a featured category.
-- **Not recommended under current settings** - failed one or more preferences and displays the reasons.
-
-Up to five not-recommended rows are shown per route/date/cabin group.
+- economic savings;
+- the treatment of missing cash, taxes, and FX data;
+- a worked numerical example.
 
 ## Features retained
 
@@ -95,11 +81,11 @@ npm run build
 npm run deploy:dry
 ```
 
-The source-level audit passed all active calculation, filtering, currency, recommendation, Worker, live-shaped simulation, exact-flight, nearby-airport, UI-retention, and v11.3.2 enhancement checks. See:
+The source-level audit passed all active calculation, filtering, currency, recommendation, Worker, live-shaped simulation, exact-flight, nearby-airport, UI-retention, and v11.3.3 enhancement checks. See:
 
-- `AUDIT_EXECUTION_LOG_V11_3_2.txt`
-- `INDEPENDENT_AUDIT_V11_3_2.md`
-- `RELEASE_NOTES_V11_3_2.md`
+- `AUDIT_EXECUTION_LOG_V11_3_3.txt`
+- `INDEPENDENT_AUDIT_V11_3_3.md`
+- `RELEASE_NOTES_V11_3_3.md`
 
 ## Cloudflare secrets
 

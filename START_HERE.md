@@ -1,4 +1,4 @@
-# Start Here - PointsBoard v11.3.2
+# Start Here - PointsBoard v11.3.3
 
 This package updates the existing GitHub repository and Cloudflare Worker named **`flights`**.
 
@@ -12,17 +12,17 @@ This package updates the existing GitHub repository and Cloudflare Worker named 
 
 ## Safest update path
 
-1. Extract the complete v11.3.2 ZIP.
+1. Extract the complete v11.3.3 ZIP.
 2. Back up the existing repository.
-3. Replace the repository files with the complete v11.3.2 project while preserving the local `.git` folder.
+3. Replace the repository files with the complete v11.3.3 project while preserving the local `.git` folder.
 4. Confirm hidden files are included: `.gitignore`, `.nvmrc`, `.dev.vars.example`, and `.github/workflows/verify.yml`.
-5. Commit with `Update PointsBoard to v11.3.2` and push to `main`.
+5. Commit with `Update PointsBoard to v11.3.3` and push to `main`.
 6. Wait for GitHub Actions > Verify PointsBoard to turn green.
 7. Wait for Cloudflare > `flights` > Deployments to finish Installing, Building, and Deploying.
-8. Open `/api/health` and confirm version `11.3.2`, `liveAwardConfigured: true`, and `liveCashConfigured: true`.
+8. Open `/api/health` and confirm version `11.3.3`, `liveAwardConfigured: true`, and `liveCashConfigured: true`.
 9. Run one Demo test and one narrow Live test.
 
-See `UPDATE_INSTRUCTIONS_V11_3_2.md` and the Word guide in `docs/` for screenshots and troubleshooting.
+See `UPDATE_INSTRUCTIONS_V11_3_3.md` and the existing Word guide in `docs/` for screenshots and troubleshooting. The GitHub and Cloudflare screens remain the same.
 
 ## Important rules
 

@@ -54,8 +54,8 @@ function ProgramRow({ row, pax, best }) {
       </div>
       <div className="text-xs"><span className="block text-[9px] uppercase tracking-wider text-ink-soft">Redeem</span><strong className="font-data">{Number(row.points || 0).toLocaleString("en-US")} pts</strong><span className="block">+ <Taxes row={row} /></span></div>
       <div className="text-xs"><span className="block text-[9px] uppercase tracking-wider text-ink-soft">Cash fare</span><strong className="font-data">{row.cash == null ? "Unavailable" : formatMoney(row.cash, row.cashCurrency || BASE_CURRENCY)}</strong><span className="block text-[9px] text-ink-soft">{fareBasis(row)}</span></div>
-      <div className="text-xs"><span className="block text-[9px] uppercase tracking-wider text-ink-soft">Economic cost</span><strong className="font-data text-deal">{row.economicCost == null ? "Pending FX/CPP" : formatMoney(row.economicCost, BASE_CURRENCY)}</strong></div>
       <div className="text-xs"><span className="block text-[9px] uppercase tracking-wider text-ink-soft">Realized CPP</span><strong className="font-data">{row.cpp == null ? "—" : `${row.cpp.toFixed(2)}¢`}</strong></div>
+      <div className="text-xs"><span className="block text-[9px] uppercase tracking-wider text-ink-soft">Economic cost</span><strong className="font-data text-deal">{row.economicCost == null ? "Pending FX/CPP" : formatMoney(row.economicCost, BASE_CURRENCY)}</strong></div>
       <div className="text-xs"><span className="block text-[9px] uppercase tracking-wider text-ink-soft">Seats</span><strong className="font-data">{row.seats == null ? "Unknown" : row.seats}</strong></div>
       <div className="text-xs"><span className="block text-[9px] uppercase tracking-wider text-ink-soft">Updated</span><strong className="font-data text-[10px]">{when(row.availabilityUpdatedAt)}</strong></div>
     </li>
@@ -71,6 +71,9 @@ function FlightGroup({ group, pax }) {
       ? formatMoney(fare.min, row.cashCurrency || BASE_CURRENCY)
       : `${formatMoney(fare.min, row.cashCurrency || BASE_CURRENCY)}–${formatMoney(fare.max, row.cashCurrency || BASE_CURRENCY)}`;
   const bestId = group.bestEconomic?.id;
+  const bestCpp = [...group.rows]
+    .filter((item) => Number.isFinite(item.cpp))
+    .sort((a, b) => b.cpp - a.cpp)[0] || null;
   return (
     <article className="rounded border-2 border-ink bg-paper-deep p-3">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line pb-2">
@@ -91,14 +94,21 @@ function FlightGroup({ group, pax }) {
           </p>
           <p className="mt-1 text-[10px] font-light text-ink-soft">({row.carriers?.length ? `Operated by ${row.carriers.map(airlineName).join(" and ")}` : "Operating airline not provided"})</p>
         </div>
-        <div className="rounded border border-deal bg-deal-soft px-3 py-2 text-right">
-          <p className="text-[9px] uppercase tracking-wider text-deal">{fare.label}</p>
-          <p className="font-data text-lg font-bold text-deal">{cashLabel}</p>
-          <p className="text-[9px] text-ink-soft">Each loyalty row shows its own fare provenance.</p>
+        <div className="flex flex-wrap justify-end gap-2">
+          <div className="rounded border border-deal bg-deal-soft px-3 py-2 text-right">
+            <p className="text-[9px] uppercase tracking-wider text-deal">{fare.label}</p>
+            <p className="font-data text-lg font-bold text-deal">{cashLabel}</p>
+            <p className="text-[9px] text-ink-soft">Each loyalty row shows its own fare provenance.</p>
+          </div>
+          <div className="rounded border border-ink bg-card px-3 py-2 text-right" title="Highest realized cents-per-point value within this exact-flight group">
+            <p className="text-[9px] uppercase tracking-wider text-ink-soft">Best realized CPP</p>
+            <p className="font-data text-lg font-bold text-ink">{bestCpp ? `${bestCpp.cpp.toFixed(2)}¢` : "—"}</p>
+            <p className="text-[9px] text-ink-soft">{bestCpp ? bestCpp.programLabel : "Cash/fee data unavailable"}</p>
+          </div>
         </div>
       </div>
       <div className="mt-2 hidden grid-cols-[1.25fr_repeat(6,minmax(80px,0.7fr))] gap-2 px-2.5 text-[9px] font-semibold uppercase tracking-wider text-ink-soft md:grid">
-        <span>Reward program</span><span>Points + fees</span><span>Cash fare</span><span>Economic cost</span><span>CPP</span><span>Seats</span><span>Availability</span>
+        <span>Reward program</span><span>Points + fees</span><span>Cash fare</span><span>CPP</span><span>Economic cost</span><span>Seats</span><span>Availability</span>
       </div>
       <ul className="mt-1 space-y-1.5">
         {group.rows.map((programRow) => <ProgramRow key={programRow.id} row={programRow} pax={pax} best={programRow.id === bestId} />)}

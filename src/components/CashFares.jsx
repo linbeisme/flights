@@ -150,6 +150,7 @@ export default function CashFares({ proxyBase, prefill }) {
   const [searchedAt, setSearchedAt] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [searched, setSearched] = useState(false);
   const [history, setHistory] = useState(loadCashHistory);
 
@@ -165,8 +166,20 @@ export default function CashFares({ proxyBase, prefill }) {
 
   useEffect(() => saveCashHistory(history), [history]);
 
-  const toggleCabin = (id) =>
+  const toggleCabin = (id) => {
     setCabins((cs) => (cs.includes(id) ? cs.filter((x) => x !== id) : [...cs, id]));
+    // Cabin buttons define which live fare lookups must be run. Once that
+    // selection changes, previously fetched rows are stale and must not remain
+    // visible under the new cabin choice.
+    if (searched || rows.length > 0) {
+      setRows([]);
+      setSearched(false);
+      setSearchedAt(null);
+      setCf(CASH_FILTERS);
+      setError("");
+      setNotice("Cabin selection changed. Previous cash-fare results were cleared; press Get cash fares to search the selected cabin(s).");
+    }
+  };
 
   // Reload a saved cash search into the form + results (no refetch).
   function loadCashSearch(id) {
@@ -174,7 +187,7 @@ export default function CashFares({ proxyBase, prefill }) {
     if (!e) return;
     setOrigin(e.origin); setDestination(e.destination); setDate(e.date);
     setCabins(e.cabins); setRows(e.rows); setCf(CASH_FILTERS);
-    setSearchedAt(e.searchedAt); setSearched(true); setError("");
+    setSearchedAt(e.searchedAt); setSearched(true); setError(""); setNotice("");
   }
 
   const airlinesAvailable = [...new Set(rows.flatMap((r) => r.carriers || []))].sort();
@@ -194,6 +207,7 @@ export default function CashFares({ proxyBase, prefill }) {
     if (!date) { setError("Pick a date."); return; }
     if (cabins.length === 0) { setError("Select at least one cabin."); return; }
     setError("");
+    setNotice("");
     setLoading(true);
     setSearched(true);
     try {
@@ -310,12 +324,15 @@ export default function CashFares({ proxyBase, prefill }) {
         </button>
         <button
           type="button"
-          onClick={() => { setRows([]); setSearched(false); setError(""); setSearchedAt(null); setCf(CASH_FILTERS); }}
+          onClick={() => { setRows([]); setSearched(false); setError(""); setNotice(""); setSearchedAt(null); setCf(CASH_FILTERS); }}
           disabled={!searched && rows.length === 0}
           className="rounded border border-ink bg-ink px-3 py-2 text-sm font-semibold text-paper hover:bg-magenta-deep hover:text-white disabled:opacity-40"
         >
           Clear fares
         </button>
+        {notice && (
+          <p role="status" className="w-full rounded border border-warn bg-warn/10 px-2 py-1 text-xs text-warn">{notice}</p>
+        )}
         {error && <p className="w-full text-xs text-magenta">{error}</p>}
       </div>
 

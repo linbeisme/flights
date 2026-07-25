@@ -81,3 +81,13 @@ input[type="range"] {
 @media (prefers-reduced-motion: reduce) {
   .pb-flash-slow { animation: none; }
 }
+
+/* Medium-paced alert flash for unfavorable recommendation values. */
+@keyframes pb-medium-flash {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.28; }
+}
+.pb-flash-medium { animation: pb-medium-flash 1.1s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .pb-flash-medium { animation: none; }
+}

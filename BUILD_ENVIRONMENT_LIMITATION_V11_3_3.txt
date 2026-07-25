@@ -1,0 +1,8 @@
+PointsBoard v11.3.3 build-environment note
+
+The source-level test suites and JavaScript/JSX parser validation passed. A clean npm dependency installation could not be completed in the isolated artifact environment because the npm command failed at the container execution boundary before returning a usable package-manager log.
+
+The final clean-install and production-build gates are therefore:
+- GitHub Actions: npm ci, npm test, npm run build, npm run deploy:dry
+- Cloudflare Workers Build: npm run build, npx wrangler deploy
+- Health endpoint version 11.3.3 with both provider flags true

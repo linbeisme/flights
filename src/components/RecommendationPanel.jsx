@@ -62,7 +62,7 @@ function RouteDetails({ r }) {
   );
 }
 
-function FlightInfoPopover({ r, searchedAt, compact = false }) {
+function FlightInfoPopover({ r, searchedAt, compact = false, align = "left" }) {
   const carriers = r.carriers?.length ? r.carriers.map(airlineName).join(" and ") : "Not supplied";
   return (
     <details className="relative inline-block">
@@ -73,7 +73,7 @@ function FlightInfoPopover({ r, searchedAt, compact = false }) {
       >
         ✈
       </summary>
-      <div className="absolute left-0 z-30 mt-1 w-72 rounded border-2 border-ink bg-card p-3 text-left shadow-lg">
+      <div className={`absolute z-30 mt-1 w-72 rounded border-2 border-ink bg-card p-3 text-left shadow-lg ${align === "right" ? "right-0" : "left-0"}`}>
         <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-magenta">Available flight details</p>
         <dl className="mt-2 grid grid-cols-[94px_1fr] gap-x-2 gap-y-1 text-xs">
           <dt className="text-ink-soft">Flight #</dt><dd className="font-data font-bold">{r.flightNumbers || "Not supplied"}</dd>
@@ -89,21 +89,65 @@ function FlightInfoPopover({ r, searchedAt, compact = false }) {
   );
 }
 
+function RecommendationMathPopover() {
+  return (
+    <details className="relative inline-block">
+      <summary
+        className="list-none cursor-pointer rounded-full border border-ink bg-card px-2 py-0.5 font-data text-xs font-bold text-ink hover:border-magenta hover:text-magenta"
+        title="How the recommendation calculations work"
+        aria-label="Explain economic cost, realized CPP, and economic savings"
+      >
+        i
+      </summary>
+      <div className="absolute left-0 z-40 mt-1 w-[min(92vw,30rem)] rounded border-2 border-ink bg-card p-4 text-left normal-case tracking-normal shadow-lg">
+        <h3 className="text-sm font-bold text-heading">How recommendation values are calculated</h3>
+        <div className="mt-3 space-y-3 text-xs text-ink">
+          <div>
+            <p className="font-semibold">Economic redemption cost</p>
+            <p className="mt-1 font-data text-[11px]">(Points × reference CPP in cents ÷ 100) + award taxes/fees converted to USD</p>
+            <p className="mt-1 text-ink-soft">This estimates the opportunity cost of the points consumed. It is not the cash ticket price.</p>
+          </div>
+          <div>
+            <p className="font-semibold">Realized CPP</p>
+            <p className="mt-1 font-data text-[11px]">((Cash fare − award taxes/fees in USD) ÷ points) × 100</p>
+            <p className="mt-1 text-ink-soft">This measures the cents of flight value received per point.</p>
+          </div>
+          <div>
+            <p className="font-semibold">Economic savings</p>
+            <p className="mt-1 font-data text-[11px]">Cash fare − economic redemption cost</p>
+            <p className="mt-1 text-ink-soft">A negative amount means the cash ticket costs less than the estimated economic value of the points and fees used.</p>
+          </div>
+          <div className="rounded border border-deal bg-deal-soft p-3">
+            <p className="font-semibold text-deal">Example</p>
+            <p className="mt-1">80,000 points, reference value 1.30¢, $6 award taxes/fees, and a $4,150 exact cash fare:</p>
+            <ul className="mt-1 space-y-1 font-data text-[11px]">
+              <li>Economic cost = (80,000 × 1.30 ÷ 100) + $6 = <strong>$1,046</strong></li>
+              <li>Realized CPP = (($4,150 − $6) ÷ 80,000) × 100 = <strong>5.18¢</strong></li>
+              <li>Economic savings = $4,150 − $1,046 = <strong>$3,104</strong></li>
+            </ul>
+          </div>
+          <p className="text-[10px] text-ink-soft">Cash-based values remain unavailable when the cash fare, taxes/fees, or required FX rate is missing.</p>
+        </div>
+      </div>
+    </details>
+  );
+}
+
 function Card({ title, r, searchedAt, pax }) {
   return (
     <article className="rounded border-2 border-line bg-card p-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-magenta">{title}</p>
-          <div className="mt-1 flex items-center gap-2">
-            <h3 className="min-w-0 font-data text-base font-bold">{r.programLabel}</h3>
-            <FlightInfoPopover r={r} searchedAt={searchedAt} />
-          </div>
+          <h3 className="mt-1 min-w-0 font-data text-base font-bold">{r.programLabel}</h3>
           <p className="text-[11px] font-light text-ink-soft">
             ({r.carriers?.length ? `Operated by ${r.carriers.map(airlineName).join(" and ")}` : "Operating airline not provided"})
           </p>
         </div>
-        <span className="rounded bg-deal-soft px-2 py-1 font-data text-xs font-bold text-deal">{r.recommendationScore}/100</span>
+        <div className="flex shrink-0 items-center gap-2">
+          <FlightInfoPopover r={r} searchedAt={searchedAt} align="right" />
+          <span className="rounded bg-deal-soft px-2 py-1 font-data text-xs font-bold text-deal">{r.recommendationScore}/100</span>
+        </div>
       </div>
 
       <RouteDetails r={r} />
@@ -129,7 +173,12 @@ function Card({ title, r, searchedAt, pax }) {
         </div>
         <div>
           <span className="text-ink-soft">Economic savings</span>
-          <div className="font-bold">{r.savingsVsCash == null ? "—" : formatMoney(r.savingsVsCash, BASE_CURRENCY)}</div>
+          <div
+            className={`font-bold ${Number.isFinite(r.savingsVsCash) && r.savingsVsCash < 0 ? "pb-flash-medium text-fresh" : ""}`}
+            title={Number.isFinite(r.savingsVsCash) && r.savingsVsCash < 0 ? "Negative economic savings: the cash fare is lower than the estimated economic redemption cost" : undefined}
+          >
+            {r.savingsVsCash == null ? "—" : formatMoney(r.savingsVsCash, BASE_CURRENCY)}
+          </div>
         </div>
         <div>
           <span className="text-ink-soft">Realized CPP</span>
@@ -209,13 +258,16 @@ export default function RecommendationPanel({ results, prefs, onPrefsChange, dat
     <section className="mb-4 rounded border-2 border-ink bg-paper-deep p-3" aria-label="Recommended redemptions">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="text-sm font-bold uppercase tracking-[0.15em] text-heading">Recommended redemptions</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-bold uppercase tracking-[0.15em] text-heading">Recommended redemptions</h2>
+            <RecommendationMathPopover />
+          </div>
           <p className="mt-1 text-xs text-ink-soft">
             Cash fare, economic redemption cost, savings, and realized CPP are separate measures. Valuations: {cppMeta.source || "loading"}{cppMeta.asOf ? `, as of ${cppMeta.asOf}` : ""}.
           </p>
         </div>
         <button type="button" onClick={() => setOpen((v) => !v)} className="rounded border border-line bg-card px-3 py-1.5 text-xs font-semibold">
-          {open ? "Hide settings" : "Show settings"}
+          {open ? "Hide Filter" : "Show Filter"}
         </button>
       </div>
 
