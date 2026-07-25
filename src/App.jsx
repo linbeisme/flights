@@ -98,13 +98,24 @@ export default function App() {
     document.documentElement.classList.toggle("dark", settings.theme === "night");
   }, [settings.theme]);
 
+  // Any open information popover closes when the user clicks elsewhere.
+  useEffect(() => {
+    const closeOpenPopovers = (event) => {
+      document.querySelectorAll("details[data-pb-popover][open]").forEach((details) => {
+        if (!details.contains(event.target)) details.removeAttribute("open");
+      });
+    };
+    document.addEventListener("pointerdown", closeOpenPopovers);
+    return () => document.removeEventListener("pointerdown", closeOpenPopovers);
+  }, []);
+
   const selectedRoutes = routes.filter((r) => selectedIds.includes(r.id));
   const routeExpansion = useMemo(() => expandSelectedRoutes(selectedRoutes), [selectedRoutes]);
 
   // Cash tab pre-fills from the first selected route (fields only —
   // no search runs until "Get cash fares" is pressed).
   const cashPrefill = selectedRoutes[0]
-    ? { origin: selectedRoutes[0].origin, destination: selectedRoutes[0].destination, date: selectedRoutes[0].date }
+    ? { origin: selectedRoutes[0].origin, destination: selectedRoutes[0].destination, date: selectedRoutes[0].date, flex: selectedRoutes[0].flex || 0 }
     : null;
   const effectiveFilters = useMemo(() => ({ ...filters, pax }), [filters, pax]);
   const valuedResults = useMemo(() => results.map((row) => enrichResult(row, cppLibrary, fxRates)), [results, cppLibrary, fxRates]);
@@ -239,8 +250,9 @@ export default function App() {
       {/* ── Ops bar ── */}
       <header className="border-b-2 border-ink bg-paper">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-3">
-          <h1 className="font-data text-lg font-bold tracking-[0.2em]">
-            POINTS<span className="text-magenta">BOARD</span>
+          <h1 className="flex items-baseline gap-2 font-data text-lg font-bold tracking-[0.2em]">
+            <span>POINTS<span className="text-magenta">BOARD</span></span>
+            <span className="rounded border border-line bg-card px-1.5 py-0.5 text-[10px] font-bold tracking-normal text-ink-soft">v11.3.5</span>
           </h1>
           <p className="hidden text-xs text-ink-soft sm:block">
             award space · taxes · cash fares · cents per point
@@ -501,7 +513,7 @@ export default function App() {
       </main>
 
       <footer className="mx-auto max-w-6xl px-4 pb-6 text-[11px] text-ink-soft">
-        Award data © seats.aero. Live mode never creates a synthetic cash fare. CPP uses an exact cash itinerary when flight numbers match; otherwise it is labeled as a probable schedule match, same-airline benchmark, or route/cabin benchmark. When no live fare is available, cash fare, CPP, and cash-based savings remain unavailable. CPP = ((cash fare − taxes and fees) ÷ points) × 100. <span className="font-data font-semibold text-magenta">build v11.3.4 · persistent multi-cabin fares + recommendation UI refinements</span>
+        Award data © seats.aero. Live mode never creates a synthetic cash fare. CPP uses an exact cash itinerary when flight numbers match; otherwise it is labeled as a probable schedule match, same-airline benchmark, or route/cabin benchmark. When no live fare is available, cash fare, CPP, and cash-based savings remain unavailable. CPP = ((cash fare − taxes and fees) ÷ points) × 100. <span className="font-data font-semibold text-magenta">build v11.3.5 · popup dismissal + automatic FX + saved-route toggle + flexible cash dates</span>
       </footer>
     </div>
   );

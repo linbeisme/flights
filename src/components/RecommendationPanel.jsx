@@ -65,7 +65,7 @@ function RouteDetails({ r }) {
 function FlightInfoPopover({ r, searchedAt, compact = false, align = "left" }) {
   const carriers = r.carriers?.length ? r.carriers.map(airlineName).join(" and ") : "Not supplied";
   return (
-    <details className="relative inline-block">
+    <details data-pb-popover className="relative inline-block">
       <summary
         className={`list-none cursor-pointer rounded-full border border-deal bg-deal-soft text-deal hover:border-ink ${compact ? "px-1.5 py-0.5 text-xs" : "px-2 py-1 text-sm"}`}
         title="Show flight details"
@@ -91,7 +91,7 @@ function FlightInfoPopover({ r, searchedAt, compact = false, align = "left" }) {
 
 function RecommendationMathPopover() {
   return (
-    <details className="relative inline-block">
+    <details data-pb-popover className="relative inline-block">
       <summary
         className="list-none cursor-pointer rounded-full border border-ink bg-card px-2 py-0.5 font-data text-xs font-bold text-ink hover:border-magenta hover:text-magenta"
         title="How the recommendation calculations work"
@@ -135,7 +135,7 @@ function RecommendationMathPopover() {
 
 function FastestAcceptablePopover() {
   return (
-    <details className="relative inline-block">
+    <details data-pb-popover className="relative inline-block">
       <summary
         className="list-none cursor-pointer rounded-full border border-ink bg-card px-1.5 py-0.5 font-data text-[10px] font-bold text-ink hover:border-magenta hover:text-magenta"
         title="What fastest acceptable means"
@@ -315,7 +315,7 @@ export default function RecommendationPanel({ results, prefs, onPrefsChange, dat
         <p className="mt-1 text-xs text-ink-soft">
           Cash fare, economic redemption cost, savings, and realized CPP are separate measures. Valuations: {cppMeta.source || "loading"}{cppMeta.asOf ? `, as of ${cppMeta.asOf}` : ""}.
         </p>
-        <button type="button" onClick={() => setOpen((v) => !v)} className="mt-2 rounded border border-line bg-card px-3 py-1.5 text-xs font-semibold">
+        <button type="button" onClick={() => setOpen((v) => !v)} className="mt-2 rounded border border-blue-300 bg-blue-100 px-3 py-1.5 text-xs font-semibold text-blue-950 hover:bg-blue-200">
           {open ? "Hide Filter" : "Show Filter"}
         </button>
       </div>

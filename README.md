@@ -1,4 +1,4 @@
-# ✈ PointsBoard v11.3.4
+# ✈ PointsBoard v11.3.5
 
 PointsBoard combines live reward-flight availability, live cash-fare comparison, multi-currency award fees, CPP analysis, personalized recommendations, exact same-flight grouping, nearby-airport expansion, and official redemption handoff in one React application deployed through Cloudflare Workers.
 
@@ -16,20 +16,21 @@ The active GitHub repository and Cloudflare Worker are both named **`flights`**.
 
 1. Read `START_HERE.md`.
 2. The illustrated setup guide at `docs/PointsBoard_v11_3_2_Beginner_Setup_and_Update_Guide.docx` remains applicable to GitHub and Cloudflare deployment.
-3. For an existing v11.3.3 deployment, follow `UPDATE_INSTRUCTIONS_V11_3_4.md` and overlay the updated-files patch.
+3. For an existing v11.3.4 deployment, follow `UPDATE_INSTRUCTIONS_V11_3_5.md` and overlay the updated-files patch.
 4. Wait for GitHub Actions and Cloudflare Workers Builds to turn green.
-5. Confirm `/api/health` reports version `11.3.4` and both configured flags as `true`.
+5. Confirm `/api/health` reports version `11.3.5` and both configured flags as `true`.
 
-## New in v11.3.4
+## New in v11.3.5
 
-- The **Hide Filter / Show Filter** control is positioned directly below the Recommended Redemptions heading and explanatory line.
-- Positive economic savings use a dark-purple emphasis; negative savings remain red and flash at a medium pace.
-- Cash Fare supports multi-cabin searches whose fetched rows remain stored. Deselecting a cabin hides its rows without clearing them; reselecting restores them. Only **Clear fares** explicitly clears stored fare rows.
-- **Fastest acceptable** includes an information popup explaining the eligibility criteria and fallback behavior.
-- Other Qualified Flights display **Realized CPP** along with points, cash fare, economic cost, and seats.
-- Operating-airline names are bold and darker in recommendation and exact-flight views.
-- Airline code `JX` resolves to **Starlux Airlines**.
-- Exact Same Flight continues to show CPP immediately beside Cash Fare in the summary and row columns.
+- Version number displayed beside the PointsBoard heading.
+- Information popovers close when the user clicks elsewhere on the page.
+- Light-blue Hide/Show controls for recommendation filters and FX conversion.
+- Full loyalty-program names appear when hovering or keyboard-focusing program filter buttons.
+- FX conversion is hidden by default and opens automatically when a newly detected non-USD award fee requires input.
+- Saved Routes can be hidden and restored; they remain visible by default.
+- Cash Fare searches support Exact date, ±1 day, ±3 days, and ±7 days.
+- Flexible Cash Fare results retain and display the searched date.
+- The interface reports the number of live cabin/date lookups before searching.
 
 ## Features retained
 
@@ -52,11 +53,11 @@ npm run build
 npm run deploy:dry
 ```
 
-The source-level audit passed all active calculation, filtering, currency, recommendation, Worker, live-shaped simulation, exact-flight, nearby-airport, UI-retention, and v11.3.4 enhancement checks. See:
+The source-level audit passed all active calculation, filtering, currency, recommendation, Worker, live-shaped simulation, exact-flight, nearby-airport, UI-retention, and v11.3.5 enhancement checks. See:
 
-- `INDEPENDENT_AUDIT_V11_3_4.md`
-- `RELEASE_NOTES_V11_3_4.md`
-- `UPDATE_INSTRUCTIONS_V11_3_4.md`
+- `INDEPENDENT_AUDIT_V11_3_5.md`
+- `RELEASE_NOTES_V11_3_5.md`
+- `UPDATE_INSTRUCTIONS_V11_3_5.md`
 
 ## Cloudflare secrets
 
@@ -67,4 +68,4 @@ Add these as encrypted runtime secrets, not GitHub files:
 
 ## Build-environment note
 
-The isolated audit environment could not complete a clean Vite build because the local dependency installation did not provide the Vite executable. GitHub Actions and Cloudflare Workers Builds remain the final clean-install and production-build gates. All source tests and JavaScript/JSX syntax checks passed.
+The isolated audit environment could not complete `npm ci` within the available execution window. GitHub Actions and Cloudflare Workers Builds remain the final clean-install and production-build gates. All source tests and JavaScript/JSX syntax checks passed.

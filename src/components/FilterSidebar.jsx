@@ -132,12 +132,15 @@ export default function FilterSidebar({ filters, onChange }) {
                 onClick={() => toggleIn("programs", p.id)}
                 aria-pressed={on}
                 title={p.label}
-                className={`rounded border px-2 py-1 font-data text-sm font-semibold ${
+                className={`group relative rounded border px-2 py-1 font-data text-sm font-semibold ${
                   on ? "text-white" : "border-line bg-card text-ink-soft"
                 }`}
                 style={on ? { background: p.color, borderColor: p.color } : undefined}
               >
                 {p.short}
+                <span role="tooltip" className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded border border-ink bg-card px-2 py-1 font-sans text-[10px] font-semibold text-ink shadow-lg group-hover:block group-focus-visible:block">
+                  {p.label}
+                </span>
               </button>
             );
           })}

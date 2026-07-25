@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AIRPORTS, CABINS, normalizeAirportInput } from "../data/defaults.js";
-import { searchCashFares, formatDuration, applyCashFilters, filterCashRowsByCabins, CASH_FILTERS } from "../api/flightApi.js";
+import { searchCashFares, cashSearchDates, formatDuration, applyCashFilters, filterCashRowsByCabins, CASH_FILTERS } from "../api/flightApi.js";
 import { BASE_CURRENCY, formatMoney } from "../api/currency.js";
 
 // ── CashFares (v9) ──────────────────────────────────────────────────
@@ -112,6 +112,7 @@ function CashRow({ f }) {
             >
               {cab.label}
             </span>
+            {f.searchDate && <span className="rounded border border-line bg-paper-deep px-1.5 py-0.5 font-data text-[10px] font-semibold text-ink-soft">{f.searchDate}</span>}
           </div>
         </div>
 
@@ -144,6 +145,7 @@ export default function CashFares({ proxyBase, prefill }) {
   const [origin, setOrigin] = useState("");
   const [destination, setDestination] = useState("");
   const [date, setDate] = useState("");
+  const [dateFlex, setDateFlex] = useState(0);
   const [cabins, setCabins] = useState(["economy"]);
   const [searchedCabins, setSearchedCabins] = useState([]);
   const [rows, setRows] = useState([]);
@@ -162,8 +164,9 @@ export default function CashFares({ proxyBase, prefill }) {
       setOrigin(prefill.origin);
       setDestination(prefill.destination);
       setDate(prefill.date);
+      setDateFlex([0, 1, 3, 7].includes(Number(prefill.flex)) ? Number(prefill.flex) : 0);
     }
-  }, [prefill?.origin, prefill?.destination, prefill?.date]);
+  }, [prefill?.origin, prefill?.destination, prefill?.date, prefill?.flex]);
 
   useEffect(() => saveCashHistory(history), [history]);
 
@@ -189,7 +192,7 @@ export default function CashFares({ proxyBase, prefill }) {
   function loadCashSearch(id) {
     const e = history.find((h) => h.id === id);
     if (!e) return;
-    setOrigin(e.origin); setDestination(e.destination); setDate(e.date);
+    setOrigin(e.origin); setDestination(e.destination); setDate(e.date); setDateFlex(e.flex || 0);
     setCabins(e.cabins); setSearchedCabins(e.cabins); setRows(e.rows); setCf(CASH_FILTERS);
     setSearchedAt(e.searchedAt); setSearched(true); setError(""); setNotice("");
   }
@@ -204,6 +207,8 @@ export default function CashFares({ proxyBase, prefill }) {
   const activeCabinRows = filterCashRowsByCabins(rows, cabins);
   const hiddenCabinRows = rows.length - activeCabinRows.length;
   const shown = applyCashFilters(activeCabinRows, cf);
+  const lookupDates = cashSearchDates(date, dateFlex);
+  const lookupCount = lookupDates.length * cabins.length;
 
   async function run() {
     const o = normalizeAirportInput(origin);
@@ -217,7 +222,7 @@ export default function CashFares({ proxyBase, prefill }) {
     setLoading(true);
     setSearched(true);
     try {
-      const data = await searchCashFares({ proxyBase, origin: o, destination: d, date, cabins });
+      const data = await searchCashFares({ proxyBase, origin: o, destination: d, date, flex: dateFlex, cabins });
       const ts = Date.now();
       if (!data.length) {
         setError("No live cash fares were returned. Confirm SERPAPI_KEY is configured, then retry.");
@@ -230,9 +235,9 @@ export default function CashFares({ proxyBase, prefill }) {
       setSearchedAt(ts);
       setHistory((h) =>
         [
-          { id: `${o}-${d}-${date}-${ts}`, origin: o, destination: d, date,
+          { id: `${o}-${d}-${date}-f${dateFlex}-${ts}`, origin: o, destination: d, date, flex: dateFlex,
             cabins: [...cabins], rows: data, searchedAt: ts },
-          ...h.filter((x) => !(x.origin === o && x.destination === d && x.date === date &&
+          ...h.filter((x) => !(x.origin === o && x.destination === d && x.date === date && Number(x.flex || 0) === dateFlex &&
             x.cabins.join() === cabins.join())),
         ].slice(0, CASH_HISTORY_MAX)
       );
@@ -278,6 +283,15 @@ export default function CashFares({ proxyBase, prefill }) {
           <span className={FIELD_LABEL}>Date</span>
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={FIELD_INPUT} />
         </label>
+        <label className="flex flex-col gap-1">
+          <span className={FIELD_LABEL}>Date flexibility</span>
+          <select value={dateFlex} onChange={(e) => setDateFlex(Number(e.target.value))} className={FIELD_INPUT}>
+            <option value={0}>Exact date</option>
+            <option value={1}>± 1 day</option>
+            <option value={3}>± 3 days</option>
+            <option value={7}>± 7 days</option>
+          </select>
+        </label>
 
         <fieldset className="flex flex-col gap-1">
           <legend className={FIELD_LABEL}>Cabins (one fare lookup each)</legend>
@@ -316,7 +330,7 @@ export default function CashFares({ proxyBase, prefill }) {
               <option value="">Saved searches ({history.length})</option>
               {history.map((h) => (
                 <option key={h.id} value={h.id}>
-                  {h.origin}→{h.destination} {h.date} · {h.cabins.length} cabin{h.cabins.length > 1 ? "s" : ""}
+                  {h.origin}→{h.destination} {h.date}{h.flex ? ` ±${h.flex}d` : ""} · {h.cabins.length} cabin{h.cabins.length > 1 ? "s" : ""}
                 </option>
               ))}
             </select>
@@ -328,7 +342,7 @@ export default function CashFares({ proxyBase, prefill }) {
           disabled={loading}
           className="ml-auto rounded bg-magenta px-4 py-2 text-sm font-semibold text-white hover:bg-magenta-deep disabled:opacity-40"
         >
-          {loading ? "Fetching fares…" : "Get cash fares"}
+          {loading ? "Fetching fares…" : `Get cash fares${lookupCount > 1 ? ` (${lookupCount} lookups)` : ""}`}
         </button>
         <button
           type="button"
@@ -338,6 +352,9 @@ export default function CashFares({ proxyBase, prefill }) {
         >
           Clear fares
         </button>
+        <p className="w-full text-[10px] text-ink-soft">
+          Date flexibility runs one live cash-fare lookup per selected cabin per date. Current selection: {lookupCount || 0} lookup{lookupCount === 1 ? "" : "s"} across {lookupDates.length || 0} date{lookupDates.length === 1 ? "" : "s"}.
+        </p>
         {notice && (
           <p role="status" className="w-full rounded border border-warn bg-warn/10 px-2 py-1 text-xs text-warn">{notice}</p>
         )}

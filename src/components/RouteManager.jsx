@@ -100,6 +100,7 @@ export default function RouteManager({ routes, selectedIds, onToggleSelect, onUp
   const [newNearbyDestination, setNewNearbyDestination] = useState(false);
   const [newNearbyRadius, setNewNearbyRadius] = useState(50);
   const [error, setError] = useState("");
+  const [showSavedRoutes, setShowSavedRoutes] = useState(true);
   const atLimit = selectedIds.length >= MAX_SELECTED;
 
   function handleAdd(event) {
@@ -134,28 +135,39 @@ export default function RouteManager({ routes, selectedIds, onToggleSelect, onUp
 
   return (
     <section aria-labelledby="routes-heading">
-      <div className="mb-1 flex items-baseline justify-between">
+      <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
         <h2 id="routes-heading" className="text-xs font-semibold uppercase tracking-[0.15em] text-heading">Saved routes</h2>
-        <button type="button" onClick={onResetDefaults} className="text-[15px] font-semibold text-magenta underline decoration-dotted hover:text-magenta-deep" title="Reload the preset routes (nothing gets auto-selected)">Restore defaults</button>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => setShowSavedRoutes((value) => !value)} className="rounded border border-line bg-card px-2 py-1 text-[11px] font-semibold hover:border-magenta hover:text-magenta" aria-expanded={showSavedRoutes} aria-controls="saved-routes-list">
+            {showSavedRoutes ? "Hide routes" : `Show routes (${routes.length})`}
+          </button>
+          <button type="button" onClick={onResetDefaults} className="text-[15px] font-semibold text-magenta underline decoration-dotted hover:text-magenta-deep" title="Reload the preset routes (nothing gets auto-selected)">Restore defaults</button>
+        </div>
       </div>
       <p className="mb-2 text-[11px] text-ink-soft">Check up to {MAX_SELECTED} saved routes. Nearby-airport expansion is bounded separately to protect API quota.</p>
-      <ul className="flex max-h-[48vh] flex-col gap-1.5 overflow-y-auto pr-1 lg:max-h-[50vh]">
-        {routes.map((route) => (
-          <RouteStrip
-            key={route.id}
-            route={route}
-            selected={selectedIds.includes(route.id)}
-            atLimit={atLimit}
-            onToggle={() => onToggleSelect(route.id)}
-            onDateChange={(date) => onUpdateDate(route.id, date)}
-            onFlexChange={(flex) => onUpdateFlex(route.id, flex)}
-            onNearbyChange={(patch) => onUpdateNearby(route.id, patch)}
-            onReverse={() => onReverse(route.id)}
-            onDelete={() => onDelete(route.id)}
-          />
-        ))}
-        {routes.length === 0 && <li className="rounded border border-dashed border-line p-3 text-xs text-ink-soft">No saved routes yet — add your first one below or restore the preset routes.</li>}
-      </ul>
+      {showSavedRoutes ? (
+        <ul id="saved-routes-list" className="flex max-h-[48vh] flex-col gap-1.5 overflow-y-auto pr-1 lg:max-h-[50vh]">
+          {routes.map((route) => (
+            <RouteStrip
+              key={route.id}
+              route={route}
+              selected={selectedIds.includes(route.id)}
+              atLimit={atLimit}
+              onToggle={() => onToggleSelect(route.id)}
+              onDateChange={(date) => onUpdateDate(route.id, date)}
+              onFlexChange={(flex) => onUpdateFlex(route.id, flex)}
+              onNearbyChange={(patch) => onUpdateNearby(route.id, patch)}
+              onReverse={() => onReverse(route.id)}
+              onDelete={() => onDelete(route.id)}
+            />
+          ))}
+          {routes.length === 0 && <li className="rounded border border-dashed border-line p-3 text-xs text-ink-soft">No saved routes yet — add your first one below or restore the preset routes.</li>}
+        </ul>
+      ) : (
+        <p id="saved-routes-list" className="rounded border border-dashed border-line bg-paper-deep px-2 py-2 text-[11px] text-ink-soft">
+          {routes.length} saved route{routes.length === 1 ? "" : "s"} hidden · {selectedIds.length} selected for search.
+        </p>
+      )}
 
       <form onSubmit={handleAdd} className="mt-3 rounded border border-line bg-paper-deep p-2">
         <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-heading">Add a route</p>

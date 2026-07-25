@@ -1,8 +1,19 @@
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BASE_CURRENCY, normalizeFxEntry } from "../api/currency.js";
 
 export default function FxPanel({ currencies, fxRates, onChange }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
+  const previousSignature = useRef("");
+  const signature = useMemo(() => [...currencies].sort().join(","), [currencies]);
+
+  // Default is collapsed. Newly detected foreign-currency award fees open the
+  // panel automatically so the required USD conversion can be entered.
+  useEffect(() => {
+    if (signature && signature !== previousSignature.current) setOpen(true);
+    if (!signature) setOpen(false);
+    previousSignature.current = signature;
+  }, [signature]);
+
   if (!currencies.length) return null;
 
   const update = (currency, patch) => {
@@ -39,7 +50,7 @@ export default function FxPanel({ currencies, fxRates, onChange }) {
           <button
             type="button"
             onClick={() => setOpen((value) => !value)}
-            className="rounded border border-line bg-card px-3 py-1 text-xs font-semibold hover:border-ink"
+            className="rounded border border-blue-300 bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-950 hover:bg-blue-200"
             aria-expanded={open}
             aria-controls="fx-rate-controls"
           >

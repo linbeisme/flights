@@ -369,17 +369,45 @@ export async function searchAwards({ proxyBase = "", origin, destination, date, 
   return searchAwardsLive({ proxyBase, origin, destination, date, programIds, flex });
 }
 
-export async function searchCashFares({ proxyBase = "", origin, destination, date, cabins }) {
+export function cashSearchDates(date, flex = 0) {
+  const match = String(date || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return [];
+  const center = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  const radius = [0, 1, 3, 7].includes(Number(flex)) ? Number(flex) : 0;
+  return Array.from({ length: radius * 2 + 1 }, (_, index) => {
+    const value = new Date(center);
+    value.setUTCDate(center.getUTCDate() + index - radius);
+    return value.toISOString().slice(0, 10);
+  });
+}
+
+async function mapCashQueriesWithConcurrency(items, limit, fn) {
+  const output = new Array(items.length);
+  let nextIndex = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex++;
+      output[index] = await fn(items[index]);
+    }
+  });
+  await Promise.all(workers);
+  return output;
+}
+
+export async function searchCashFares({ proxyBase = "", origin, destination, date, flex = 0, cabins }) {
   const base = (proxyBase || "").replace(/\/$/, "");
-  const perCabin = await Promise.all(cabins.map(async (cabin) => {
+  const dates = cashSearchDates(date, flex);
+  const queries = dates.flatMap((searchDate) => cabins.map((cabin) => ({ searchDate, cabin })));
+  const perQuery = await mapCashQueriesWithConcurrency(queries, 4, async ({ searchDate, cabin }) => {
     try {
-      const data = await fetchJson(`${base}/api/cashfare?origin=${origin}&destination=${destination}&date=${date}&cabin=${cabin}&list=1`, 20000);
+      const data = await fetchJson(`${base}/api/cashfare?origin=${origin}&destination=${destination}&date=${searchDate}&cabin=${cabin}&list=1`, 20000);
       if (data.source !== "serpapi") return [];
       const currency = data.currency || BASE_CURRENCY;
       return (data.flights || []).map((f, i) => ({
         ...f,
         currency: f.currency || currency,
-        id: `${cabin}-${f.id || i}`,
+        id: `${searchDate}-${cabin}-${f.id || i}`,
+        searchDate,
         cabin,
         source: "live",
         layovers: Array.isArray(f.layovers) ? f.layovers : [],
@@ -389,8 +417,8 @@ export async function searchCashFares({ proxyBase = "", origin, destination, dat
     } catch {
       return [];
     }
-  }));
-  return perCabin.flat().sort((a, b) => a.price - b.price);
+  });
+  return perQuery.flat().sort((a, b) => a.price - b.price || String(a.searchDate).localeCompare(String(b.searchDate)));
 }
 
 // ── Cash Fares tab filters ──────────────────────────────────────────

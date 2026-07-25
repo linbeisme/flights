@@ -8,7 +8,7 @@ const rec = fs.readFileSync("src/components/RecommendationPanel.jsx", "utf8");
 const defaults = fs.readFileSync("src/data/defaults.js", "utf8");
 const css = fs.readFileSync("src/index.css", "utf8");
 
-assert.match(rec, /className="mt-2 rounded border border-line bg-card px-3 py-1\.5 text-xs font-semibold"/);
+assert.match(rec, /className="mt-2 rounded border border-blue-300 bg-blue-100 px-3 py-1\.5 text-xs font-semibold text-blue-950 hover:bg-blue-200"/);
 assert.match(rec, /text-favorable/);
 assert.match(css, /--color-favorable: #5b2c83/);
 assert.match(rec, /FastestAcceptablePopover/);
