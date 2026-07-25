@@ -23,7 +23,7 @@ export const AIRLINE_NAMES = {
   TK: "Turkish Airlines", VS: "Virgin Atlantic", AV: "Avianca", KL: "KLM",
   AF: "Air France", NH: "ANA", JL: "JAL", BR: "EVA Air", CI: "China Airlines",
   KE: "Korean Air", OZ: "Asiana", SQ: "Singapore Airlines", TG: "Thai Airways",
-  CX: "Cathay Pacific", MH: "Malaysia Airlines", GA: "Garuda", LH: "Lufthansa",
+  CX: "Cathay Pacific", JX: "Starlux Airlines", MH: "Malaysia Airlines", GA: "Garuda", LH: "Lufthansa",
   LX: "SWISS", OS: "Austrian", SN: "Brussels Airlines", SK: "SAS", TP: "TAP Portugal",
   IB: "Iberia", AY: "Finnair", BA: "British Airways", QR: "Qatar Airways",
   EK: "Emirates", EY: "Etihad", QF: "Qantas", NZ: "Air New Zealand",

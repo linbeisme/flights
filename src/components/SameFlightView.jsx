@@ -8,6 +8,15 @@ import RedemptionActions from "./RedemptionActions.jsx";
 const airlineName = (code) => AIRLINE_NAMES[code] || code;
 const cabinLabel = (id) => CABINS.find((cabin) => cabin.id === id)?.label || id;
 
+function OperatingCarrierLine({ carriers }) {
+  if (!carriers?.length) return <span>Operating airline not provided</span>;
+  return (
+    <>
+      Operated by <strong className="font-semibold text-ink">{carriers.map(airlineName).join(" and ")}</strong>
+    </>
+  );
+}
+
 function when(value) {
   if (!value) return "not supplied";
   const date = new Date(value);
@@ -47,9 +56,7 @@ function ProgramRow({ row, pax, best }) {
           <p className="font-data text-sm font-bold">{row.programLabel}</p>
           {best && <span className="rounded bg-deal px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">Lowest economic cost</span>}
         </div>
-        <p className="text-[10px] font-light text-ink-soft">
-          ({row.carriers?.length ? `Operated by ${row.carriers.map(airlineName).join(" and ")}` : "Operating airline not provided"})
-        </p>
+        <p className="text-[10px] font-light text-ink-soft">(<OperatingCarrierLine carriers={row.carriers} />)</p>
         <RedemptionActions row={row} pax={pax} compact />
       </div>
       <div className="text-xs"><span className="block text-[9px] uppercase tracking-wider text-ink-soft">Redeem</span><strong className="font-data">{Number(row.points || 0).toLocaleString("en-US")} pts</strong><span className="block">+ <Taxes row={row} /></span></div>
@@ -92,7 +99,7 @@ function FlightGroup({ group, pax }) {
             {row.date} · {row.departTime}–{row.arriveTime}{row.arrivesNextDay ? "+1" : ""} · {cabinLabel(row.cabin)} · {row.stops === 0 ? "Nonstop" : `${row.stops ?? "?"} stop${row.stops === 1 ? "" : "s"}${row.connections?.length ? ` via ${row.connections.join(", ")}` : ""}`} · {formatDuration(row.totalMinutes)}
             {row.layovers?.length ? ` · layover${row.layovers.length > 1 ? "s" : ""} ${row.layovers.map(formatDuration).join(", ")}` : ""}
           </p>
-          <p className="mt-1 text-[10px] font-light text-ink-soft">({row.carriers?.length ? `Operated by ${row.carriers.map(airlineName).join(" and ")}` : "Operating airline not provided"})</p>
+          <p className="mt-1 text-[10px] font-light text-ink-soft">(<OperatingCarrierLine carriers={row.carriers} />)</p>
         </div>
         <div className="flex flex-wrap justify-end gap-2">
           <div className="rounded border border-deal bg-deal-soft px-3 py-2 text-right">

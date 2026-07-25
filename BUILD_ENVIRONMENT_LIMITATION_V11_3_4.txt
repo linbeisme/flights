@@ -1,0 +1,10 @@
+PointsBoard v11.3.4 build-environment limitation
+
+The full source-level test suite and JavaScript/JSX syntax validation passed.
+A fresh Vite production build could not be completed in this isolated workspace because the dependency installation did not expose the Vite executable (`vite: not found`).
+
+Final build gates remain:
+1. GitHub Actions: npm ci, npm test, npm run build, npm run deploy:dry
+2. Cloudflare Workers Builds: npm run build and npx wrangler deploy
+
+This limitation does not indicate a known source-code failure; it means the production bundle must be confirmed by the connected deployment pipelines.

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AIRPORTS, CABINS, normalizeAirportInput } from "../data/defaults.js";
-import { searchCashFares, formatDuration, applyCashFilters, CASH_FILTERS } from "../api/flightApi.js";
+import { searchCashFares, formatDuration, applyCashFilters, filterCashRowsByCabins, CASH_FILTERS } from "../api/flightApi.js";
 import { BASE_CURRENCY, formatMoney } from "../api/currency.js";
 
 // ── CashFares (v9) ──────────────────────────────────────────────────
@@ -145,6 +145,7 @@ export default function CashFares({ proxyBase, prefill }) {
   const [destination, setDestination] = useState("");
   const [date, setDate] = useState("");
   const [cabins, setCabins] = useState(["economy"]);
+  const [searchedCabins, setSearchedCabins] = useState([]);
   const [rows, setRows] = useState([]);
   const [cf, setCf] = useState(CASH_FILTERS);
   const [searchedAt, setSearchedAt] = useState(null);
@@ -167,17 +168,20 @@ export default function CashFares({ proxyBase, prefill }) {
   useEffect(() => saveCashHistory(history), [history]);
 
   const toggleCabin = (id) => {
-    setCabins((cs) => (cs.includes(id) ? cs.filter((x) => x !== id) : [...cs, id]));
-    // Cabin buttons define which live fare lookups must be run. Once that
-    // selection changes, previously fetched rows are stale and must not remain
-    // visible under the new cabin choice.
+    const wasSelected = cabins.includes(id);
+    const next = wasSelected ? cabins.filter((x) => x !== id) : [...cabins, id];
+    setCabins(next);
+    setError("");
+
     if (searched || rows.length > 0) {
-      setRows([]);
-      setSearched(false);
-      setSearchedAt(null);
-      setCf(CASH_FILTERS);
-      setError("");
-      setNotice("Cabin selection changed. Previous cash-fare results were cleared; press Get cash fares to search the selected cabin(s).");
+      const label = cabinMeta(id).label;
+      if (wasSelected) {
+        setNotice(`${label} fares are hidden. Stored search results remain available until Clear fares is clicked.`);
+      } else if (searchedCabins.includes(id)) {
+        setNotice(`${label} fares are visible again from the stored search results.`);
+      } else {
+        setNotice(`${label} was added to the selection. Existing fares remain visible; press Get cash fares to fetch this newly selected cabin.`);
+      }
     }
   };
 
@@ -186,7 +190,7 @@ export default function CashFares({ proxyBase, prefill }) {
     const e = history.find((h) => h.id === id);
     if (!e) return;
     setOrigin(e.origin); setDestination(e.destination); setDate(e.date);
-    setCabins(e.cabins); setRows(e.rows); setCf(CASH_FILTERS);
+    setCabins(e.cabins); setSearchedCabins(e.cabins); setRows(e.rows); setCf(CASH_FILTERS);
     setSearchedAt(e.searchedAt); setSearched(true); setError(""); setNotice("");
   }
 
@@ -197,7 +201,9 @@ export default function CashFares({ proxyBase, prefill }) {
       airlines: f.airlines.includes(name) ? f.airlines.filter((a) => a !== name) : [...f.airlines, name],
     }));
   const filtersActive = JSON.stringify(cf) !== JSON.stringify(CASH_FILTERS);
-  const shown = applyCashFilters(rows, cf);
+  const activeCabinRows = filterCashRowsByCabins(rows, cabins);
+  const hiddenCabinRows = rows.length - activeCabinRows.length;
+  const shown = applyCashFilters(activeCabinRows, cf);
 
   async function run() {
     const o = normalizeAirportInput(origin);
@@ -213,13 +219,15 @@ export default function CashFares({ proxyBase, prefill }) {
     try {
       const data = await searchCashFares({ proxyBase, origin: o, destination: d, date, cabins });
       const ts = Date.now();
-      setRows(data);
-      setCf(CASH_FILTERS);
-      setSearchedAt(ts);
       if (!data.length) {
         setError("No live cash fares were returned. Confirm SERPAPI_KEY is configured, then retry.");
+        if (rows.length > 0) setNotice("No new fares were returned. Your previous cash-fare results remain available until Clear fares is clicked.");
         return;
       }
+      setRows(data);
+      setSearchedCabins([...cabins]);
+      setCf(CASH_FILTERS);
+      setSearchedAt(ts);
       setHistory((h) =>
         [
           { id: `${o}-${d}-${date}-${ts}`, origin: o, destination: d, date,
@@ -229,8 +237,8 @@ export default function CashFares({ proxyBase, prefill }) {
         ].slice(0, CASH_HISTORY_MAX)
       );
     } catch (e) {
-      setRows([]);
       setError(e.message || "Cash fare search failed.");
+      if (rows.length > 0) setNotice("The new cash-fare search failed. Your previous results remain available until Clear fares is clicked.");
     } finally {
       setLoading(false);
     }
@@ -324,7 +332,7 @@ export default function CashFares({ proxyBase, prefill }) {
         </button>
         <button
           type="button"
-          onClick={() => { setRows([]); setSearched(false); setError(""); setNotice(""); setSearchedAt(null); setCf(CASH_FILTERS); }}
+          onClick={() => { setRows([]); setSearchedCabins([]); setSearched(false); setError(""); setNotice(""); setSearchedAt(null); setCf(CASH_FILTERS); }}
           disabled={!searched && rows.length === 0}
           className="rounded border border-ink bg-ink px-3 py-2 text-sm font-semibold text-paper hover:bg-magenta-deep hover:text-white disabled:opacity-40"
         >
@@ -474,8 +482,9 @@ export default function CashFares({ proxyBase, prefill }) {
           <p aria-live="polite" className="mb-2 text-xs text-ink-soft">
             <span className="font-data font-semibold text-deal">● LIVE cash fares only</span> · showing{" "}
             <span className="font-data font-semibold text-ink">{shown.length}</span> of{" "}
-            <span className="font-data">{rows.length}</span> option{rows.length > 1 ? "s" : ""} ·
+            <span className="font-data">{activeCabinRows.length}</span> selected-cabin option{activeCabinRows.length === 1 ? "" : "s"} ·
             cheapest first
+            {hiddenCabinRows > 0 && <span className="font-data text-[10px]"> · {hiddenCabinRows} stored fare{hiddenCabinRows === 1 ? "" : "s"} hidden by cabin selection</span>}
             {searchedAt && (
               <span className="font-data text-[10px]">
                 {" "}· fetched{" "}

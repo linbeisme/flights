@@ -133,15 +133,53 @@ function RecommendationMathPopover() {
   );
 }
 
+function FastestAcceptablePopover() {
+  return (
+    <details className="relative inline-block">
+      <summary
+        className="list-none cursor-pointer rounded-full border border-ink bg-card px-1.5 py-0.5 font-data text-[10px] font-bold text-ink hover:border-magenta hover:text-magenta"
+        title="What fastest acceptable means"
+        aria-label="Explain the fastest acceptable recommendation"
+      >
+        i
+      </summary>
+      <div className="absolute left-0 z-40 mt-1 w-[min(88vw,24rem)] rounded border-2 border-ink bg-card p-3 text-left normal-case tracking-normal shadow-lg">
+        <h4 className="text-xs font-bold text-heading">Fastest acceptable recommendation</h4>
+        <p className="mt-2 text-[11px] text-ink">This is the itinerary with the shortest total travel time among the options that pass the current recommendation filters and have the data needed for comparison.</p>
+        <ul className="mt-2 space-y-1 text-[10px] text-ink-soft">
+          <li>• Maximum stops and maximum total duration</li>
+          <li>• Departure and arrival windows</li>
+          <li>• Required, preferred, and excluded connection airports</li>
+          <li>• Preferred layover range</li>
+          <li>• Required taxes, FX, CPP, and cash-fare data when available</li>
+        </ul>
+        <p className="mt-2 text-[10px] text-warn">If no itinerary passes every filter, the panel displays a fallback warning and selects the shortest option from the clearly identified fallback pool.</p>
+      </div>
+    </details>
+  );
+}
+
+function OperatingCarrierLine({ carriers }) {
+  if (!carriers?.length) return <span>Operating airline not provided</span>;
+  return (
+    <>
+      Operated by <strong className="font-semibold text-ink">{carriers.map(airlineName).join(" and ")}</strong>
+    </>
+  );
+}
+
 function Card({ title, r, searchedAt, pax }) {
   return (
     <article className="rounded border-2 border-line bg-card p-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-magenta">{title}</p>
+          <div className="flex items-center gap-1.5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-magenta">{title}</p>
+            {title === "Fastest acceptable" && <FastestAcceptablePopover />}
+          </div>
           <h3 className="mt-1 min-w-0 font-data text-base font-bold">{r.programLabel}</h3>
           <p className="text-[11px] font-light text-ink-soft">
-            ({r.carriers?.length ? `Operated by ${r.carriers.map(airlineName).join(" and ")}` : "Operating airline not provided"})
+            (<OperatingCarrierLine carriers={r.carriers} />)
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -174,8 +212,20 @@ function Card({ title, r, searchedAt, pax }) {
         <div>
           <span className="text-ink-soft">Economic savings</span>
           <div
-            className={`font-bold ${Number.isFinite(r.savingsVsCash) && r.savingsVsCash < 0 ? "pb-flash-medium text-fresh" : ""}`}
-            title={Number.isFinite(r.savingsVsCash) && r.savingsVsCash < 0 ? "Negative economic savings: the cash fare is lower than the estimated economic redemption cost" : undefined}
+            className={`font-bold ${
+              Number.isFinite(r.savingsVsCash) && r.savingsVsCash < 0
+                ? "pb-flash-medium text-fresh"
+                : Number.isFinite(r.savingsVsCash) && r.savingsVsCash > 0
+                  ? "text-favorable"
+                  : ""
+            }`}
+            title={
+              Number.isFinite(r.savingsVsCash) && r.savingsVsCash < 0
+                ? "Negative economic savings: the cash fare is lower than the estimated economic redemption cost"
+                : Number.isFinite(r.savingsVsCash) && r.savingsVsCash > 0
+                  ? "Positive economic savings: the cash fare exceeds the estimated economic redemption cost"
+                  : undefined
+            }
           >
             {r.savingsVsCash == null ? "—" : formatMoney(r.savingsVsCash, BASE_CURRENCY)}
           </div>
@@ -213,7 +263,7 @@ function AlternativeRow({ r, searchedAt, pax, status = "qualified" }) {
             <p className="font-data text-sm font-bold">{r.programLabel}</p>
             <FlightInfoPopover r={r} searchedAt={searchedAt} compact />
           </div>
-          <p className="text-[10px] text-ink-soft">({r.carriers?.length ? `Operated by ${r.carriers.map(airlineName).join(" and ")}` : "Operating airline not provided"})</p>
+          <p className="text-[10px] text-ink-soft">(<OperatingCarrierLine carriers={r.carriers} />)</p>
           <p className="mt-1 font-data text-xs">{r.origin}→{r.destination} · {r.departTime}–{r.arriveTime}{r.arrivesNextDay ? "+1" : ""}</p>
           <p className="text-[10px] text-ink-soft">
             {r.stops === 0 ? "Nonstop" : `${r.stops ?? "?"} stop${r.stops === 1 ? "" : "s"}${r.connections?.length ? ` via ${r.connections.join(", ")}` : ""}`}
@@ -224,9 +274,10 @@ function AlternativeRow({ r, searchedAt, pax, status = "qualified" }) {
           ? <span className="rounded bg-warn/15 px-2 py-1 font-data text-[10px] font-bold uppercase text-warn">Not recommended</span>
           : <span className="rounded bg-paper-deep px-2 py-1 font-data text-xs font-bold">{r.recommendationScore}/100</span>}
       </div>
-      <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs sm:grid-cols-4">
+      <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs sm:grid-cols-5">
         <span>{r.points.toLocaleString()} pts + <TaxDisplay r={r} /></span>
         <span>Cash {r.cash == null ? "unavailable" : formatMoney(r.cash, r.cashCurrency || BASE_CURRENCY)}</span>
+        <span>Realized CPP {r.cpp == null ? "—" : `${r.cpp.toFixed(2)}¢`}</span>
         <span>Economic {r.economicCost == null ? "—" : formatMoney(r.economicCost, BASE_CURRENCY)}</span>
         <span>{r.seats == null ? "Seats unknown" : `${r.seats} seats`}</span>
       </div>
@@ -256,17 +307,15 @@ export default function RecommendationPanel({ results, prefs, onPrefsChange, dat
 
   return (
     <section className="mb-4 rounded border-2 border-ink bg-paper-deep p-3" aria-label="Recommended redemptions">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-bold uppercase tracking-[0.15em] text-heading">Recommended redemptions</h2>
-            <RecommendationMathPopover />
-          </div>
-          <p className="mt-1 text-xs text-ink-soft">
-            Cash fare, economic redemption cost, savings, and realized CPP are separate measures. Valuations: {cppMeta.source || "loading"}{cppMeta.asOf ? `, as of ${cppMeta.asOf}` : ""}.
-          </p>
+      <div>
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-bold uppercase tracking-[0.15em] text-heading">Recommended redemptions</h2>
+          <RecommendationMathPopover />
         </div>
-        <button type="button" onClick={() => setOpen((v) => !v)} className="rounded border border-line bg-card px-3 py-1.5 text-xs font-semibold">
+        <p className="mt-1 text-xs text-ink-soft">
+          Cash fare, economic redemption cost, savings, and realized CPP are separate measures. Valuations: {cppMeta.source || "loading"}{cppMeta.asOf ? `, as of ${cppMeta.asOf}` : ""}.
+        </p>
+        <button type="button" onClick={() => setOpen((v) => !v)} className="mt-2 rounded border border-line bg-card px-3 py-1.5 text-xs font-semibold">
           {open ? "Hide Filter" : "Show Filter"}
         </button>
       </div>

@@ -403,6 +403,11 @@ export const CASH_FILTERS = {
   depWindow: [0, 24], arrWindow: [0, 24],
 };
 
+export function filterCashRowsByCabins(rows, selectedCabins) {
+  const selected = new Set(Array.isArray(selectedCabins) ? selectedCabins : []);
+  return (Array.isArray(rows) ? rows : []).filter((row) => selected.has(row.cabin));
+}
+
 export function applyCashFilters(rows, f) {
   const conn = (f.connections || "")
     .split(/[\s,]+/).map((c) => c.trim().toUpperCase()).filter((c) => /^[A-Z]{3}$/.test(c));

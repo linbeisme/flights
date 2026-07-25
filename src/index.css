@@ -19,6 +19,7 @@
   --color-deal-soft: #e2f1e8;
   --color-warn: #a96a1c;
   --color-fresh: #d11f2f;
+  --color-favorable: #5b2c83;
 
   --font-data: ui-monospace, "SFMono-Regular", "Menlo", "Consolas", monospace;
 }
@@ -38,6 +39,7 @@
   --color-deal-soft: #14311f;
   --color-warn: #d9a24a;
   --color-fresh: #ff5a66;
+  --color-favorable: #c4a7ff;
 }
 
 html {
