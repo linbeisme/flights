@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AIRPORTS, CABINS, normalizeAirportInput } from "../data/defaults.js";
 import { searchCashFares, cashSearchDates, formatDuration, applyCashFilters, filterCashRowsByCabins, CASH_FILTERS } from "../api/flightApi.js";
 import { BASE_CURRENCY, formatMoney } from "../api/currency.js";
@@ -141,7 +141,7 @@ function CashRow({ f }) {
   );
 }
 
-export default function CashFares({ proxyBase, prefill }) {
+export default function CashFares({ proxyBase, prefill, autoResults }) {
   const [origin, setOrigin] = useState("");
   const [destination, setDestination] = useState("");
   const [date, setDate] = useState("");
@@ -156,6 +156,7 @@ export default function CashFares({ proxyBase, prefill }) {
   const [notice, setNotice] = useState("");
   const [searched, setSearched] = useState(false);
   const [history, setHistory] = useState(loadCashHistory);
+  const lastAutoId = useRef(null);
 
   // Selecting a route on the reward tab pre-fills the fields here.
   // No search runs — that stays behind the "Get cash fares" button.
@@ -167,6 +168,31 @@ export default function CashFares({ proxyBase, prefill }) {
       setDateFlex([0, 1, 3, 7].includes(Number(prefill.flex)) ? Number(prefill.flex) : 0);
     }
   }, [prefill?.origin, prefill?.destination, prefill?.date, prefill?.flex]);
+
+  // Reward searches already request live cash-fare lists for CPP calculations.
+  // Reuse those exact results here without changing the existing Cash Fares UI
+  // or consuming a second set of cash-fare lookups.
+  useEffect(() => {
+    if (!autoResults?.id || lastAutoId.current === autoResults.id) return;
+    lastAutoId.current = autoResults.id;
+    const liveRows = (autoResults.rows || []).filter((row) => row.source === "live");
+    const availableCabins = [...new Set(liveRows.map((row) => row.cabin).filter(Boolean))];
+    const validCabins = new Set(CABINS.map((cabin) => cabin.id));
+    const requestedCabins = Array.isArray(autoResults.cabins)
+      ? autoResults.cabins.filter((cabin) => validCabins.has(cabin))
+      : [];
+    const nextCabins = requestedCabins.length ? requestedCabins : (availableCabins.length ? availableCabins : ["economy"]);
+
+    setRows(liveRows);
+    setCabins(nextCabins);
+    setSearchedCabins(availableCabins);
+    setCf(CASH_FILTERS);
+    setSearchedAt(autoResults.searchedAt || Date.now());
+    setSearched(true);
+    setLoading(false);
+    setError("");
+    setNotice("");
+  }, [autoResults]);
 
   useEffect(() => saveCashHistory(history), [history]);
 

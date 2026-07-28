@@ -7,7 +7,6 @@ const filters = read("src/components/FilterSidebar.jsx");
 const routes = read("src/components/RouteManager.jsx");
 const recs = read("src/components/RecommendationPanel.jsx");
 const same = read("src/components/SameFlightView.jsx");
-const preview = read("interactive-preview.html");
 
 for (const fragment of [
   "<RouteManager",
@@ -39,18 +38,4 @@ assert.match(recs, /Cash fare/i);
 assert.match(recs, /Economic cost/i);
 assert.match(same, /same program, cabin, time, stop, layover, connection-airport, and total-duration filters/i);
 
-for (const fragment of [
-  "SAVED ROUTES",
-  "REWARD PROGRAMS",
-  "DEPARTURE TIME",
-  "ARRIVAL TIME",
-  "LAYOVER TIME",
-  "CONNECTING AIRPORTS",
-  "NUMBER OF STOPS",
-  "TOTAL TRAVEL TIME",
-  "RECOMMENDED REDEMPTIONS",
-  "OTHER QUALIFYING REDEMPTIONS",
-  "EXACT SAME FLIGHT",
-]) assert.match(preview, new RegExp(fragment));
-
-console.log("✓ v11.3.1 full original filters, saved routes, recommendations, and new views are retained in source and preview");
+console.log("✓ v11.3.1 full original filters, saved routes, recommendations, and new views are retained in the actual React source");

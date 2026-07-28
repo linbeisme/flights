@@ -267,7 +267,27 @@ async function mapWithConcurrency(items, limit, fn) {
   return out;
 }
 
-export async function searchAwardsLive({ proxyBase, origin, destination, date, programIds, flex = 0 }) {
+export function cashRowsFromDatasets(cashByKey, origin, destination) {
+  return Object.entries(cashByKey || {}).flatMap(([key, dataset]) => {
+    if (!dataset || dataset.source !== "live") return [];
+    const [cabin, searchDate] = key.split("|");
+    return (dataset.flights || []).map((flight, index) => ({
+      ...flight,
+      id: `${origin}-${destination}-${searchDate}-${cabin}-${flight.id || index}`,
+      origin,
+      destination,
+      searchDate,
+      cabin,
+      source: "live",
+      currency: flight.currency || dataset.currency || BASE_CURRENCY,
+      layovers: Array.isArray(flight.layovers) ? flight.layovers : [],
+      departMin: Number.isFinite(flight.departMin) ? flight.departMin : toMinute(flight.departTime),
+      arriveMin: Number.isFinite(flight.arriveMin) ? flight.arriveMin : toMinute(flight.arriveTime),
+    }));
+  }).sort((left, right) => left.price - right.price || String(left.searchDate).localeCompare(String(right.searchDate)));
+}
+
+async function searchAwardsLiveBundle({ proxyBase, origin, destination, date, programIds, flex = 0 }) {
   const base = (proxyBase || "").replace(/\/$/, "");
   const sources = PROGRAMS.filter((p) => programIds.includes(p.id)).map((p) => p.source).join(",");
   const startDate = flex > 0 ? addDays(date, -flex) : date;
@@ -362,7 +382,19 @@ export async function searchAwardsLive({ proxyBase, origin, destination, date, p
       }
     }
   }
-  return results;
+  return {
+    awards: results,
+    cashFares: cashRowsFromDatasets(cashByKey, origin, destination),
+  };
+}
+
+export async function searchAwardsLive(args) {
+  const bundle = await searchAwardsLiveBundle(args);
+  return bundle.awards;
+}
+
+export async function searchAwardsWithCash(args) {
+  return searchAwardsLiveBundle(args);
 }
 
 export async function searchAwards({ proxyBase = "", origin, destination, date, programIds, flex = 0 }) {
@@ -406,7 +438,9 @@ export async function searchCashFares({ proxyBase = "", origin, destination, dat
       return (data.flights || []).map((f, i) => ({
         ...f,
         currency: f.currency || currency,
-        id: `${searchDate}-${cabin}-${f.id || i}`,
+        id: `${origin}-${destination}-${searchDate}-${cabin}-${f.id || i}`,
+        origin,
+        destination,
         searchDate,
         cabin,
         source: "live",

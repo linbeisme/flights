@@ -4,7 +4,7 @@
 // and /api/cashfare payloads, then runs the REAL searchAwards code
 // path and verifies every normalized field the UI depends on.
 import assert from "node:assert";
-import { searchAwards, searchCashFares, applyFilters, DEFAULT_FILTERS, computeCPP, applyCashFilters, CASH_FILTERS, hasDemoData } from "./src/api/flightApi.js";
+import { searchAwards, searchAwardsWithCash, searchCashFares, applyFilters, DEFAULT_FILTERS, computeCPP, applyCashFilters, CASH_FILTERS, hasDemoData } from "./src/api/flightApi.js";
 
 let n = 0;
 const test = (name, fn) => { fn(); n++; console.log("✓", name); };
@@ -109,6 +109,23 @@ const results = await searchAwards({
   date: "2026-09-01",
   programIds: ["united", "turkish"], // delta intentionally excluded
   flex: 1,
+});
+
+const rewardBundle = await searchAwardsWithCash({
+  proxyBase: "https://sim.example",
+  origin: "TPE",
+  destination: "NRT",
+  date: "2026-09-01",
+  programIds: ["united", "turkish"],
+  flex: 1,
+});
+
+test("Reward search: existing award results and cash-fare lists are returned in one bundle", () => {
+  assert.strictEqual(rewardBundle.awards.length, results.length);
+  assert.ok(rewardBundle.cashFares.length >= 2);
+  assert.ok(rewardBundle.cashFares.every((row) => row.source === "live"));
+  assert.ok(rewardBundle.cashFares.every((row) => row.origin === "TPE" && row.destination === "NRT"));
+  assert.ok(rewardBundle.cashFares.some((row) => row.cabin === "business" && row.price === 2898));
 });
 
 test("Simulation: date window ±1 forwarded to seats.aero as start/end", () => {
