@@ -1,34 +1,69 @@
-# PointsBoard v11.3.7
+# PointsBoard v11.4.0
 
 PointsBoard combines live reward-flight availability, live cash-fare comparison, multi-currency award fees, CPP analysis, personalized recommendations, exact same-flight grouping, nearby-airport expansion, and official redemption handoff in one React application deployed through Cloudflare Workers.
 
-## Scope of this update
+## v11.4.0 scope
 
-This release is rebuilt from the original **v11.3.5 application source**. It preserves the prior interface, tabs, filters, settings, buttons, colors, spacing, and calculations. Only the requested changes were applied:
+This release adds an isolated round-trip workflow while retaining the v11.3.7 one-way workflow and interface.
 
-1. The existing **Add a Route** form is moved above **Saved Routes**. Its fields and buttons are unchanged.
-2. A live **Search award space** run now reuses the cash-fare lists already requested for CPP calculations and automatically places them in the existing **Cash Fares** tab for the first selected route. The separate **Get cash fares** button remains available.
-3. The bookmark icon is a single red airplane. The airplane character was removed from the page title so browsers do not show two airplane symbols.
+### Round-trip award comparison
 
-The simplified static interactive preview from the prior package was replaced with a redirect to the actual application because the mock did not faithfully reproduce the real UI. Use the deployed app or a normal Vite development/build run to review the interface.
+- Add and save a route as **One way** or **Round trip**.
+- Enter exact departure and return dates.
+- Search both award directions and pair the results into:
+  - same-program two-one-way combinations; and
+  - split-program two-one-way combinations.
+- Require enough known award seats on both directions.
+- Keep mixed-program point currencies separate instead of adding unlike points together.
+- Display a clear disclosure that every assembled award comparison represents two separate one-way award reservations, not a guaranteed single round-trip award ticket.
+
+### True round-trip cash comparison
+
+- The Worker requests SerpApi Google Flights in round-trip mode.
+- It uses the selected outbound itinerary token to obtain return choices.
+- Round-trip cash flexibility is limited to exact dates, ±1 day, or ±3 days.
+- Both dates shift together, preserving the original trip length.
+- Exactly one cash cabin may be selected at a time.
+- Cash fare, award points, taxes, CPP, and economic cost are compared per traveler. The passenger field remains an award-seat availability requirement.
+
+### Round-trip calculations
+
+For same-program combinations:
+
+```text
+Round-trip CPP = ((true round-trip cash fare - combined award taxes) / combined points) x 100
+```
+
+For split-program combinations:
+
+- outbound and return points remain listed by program;
+- no blended CPP is shown across unlike point currencies; and
+- economic costs are combined only after valuing each leg using its own program valuation.
+
+## Existing one-way behavior
+
+The existing one-way code path remains separate and retains:
+
+- up to five selected one-way routes;
+- exact and ±1/±3/±7 date flexibility;
+- multiple cash cabins;
+- recommendations and alternatives;
+- Exact Same Flight grouping;
+- automatic Cash Fares population after award searches;
+- nearby-airport expansion;
+- filters, FX conversion, history, Demo mode, and redemption links.
+
+Old saved routes without a `tripType` field continue to load as one-way routes.
 
 ## Existing deployment
 
-The active GitHub repository and Cloudflare Worker remain named **`flights`**. No Cloudflare binding, secret, route, or repository-name change is required.
+The GitHub repository and Cloudflare Worker can remain named **`flights`**. No new Cloudflare binding or secret is required.
 
 - Production branch: `main`
 - Build command: `npm run build`
 - Deploy command: `npx wrangler deploy`
 - Health endpoint: `/api/health`
-
-## Update steps
-
-1. Read `START_HERE.md`.
-2. Overlay the v11.3.7 update patch onto the existing `flights` repository, or replace the repository contents with the complete package while retaining `.git` and runtime secrets.
-3. Commit and push to `main`.
-4. Wait for GitHub Actions and Cloudflare Workers Builds to pass.
-5. Confirm `/api/health` reports version `11.3.7` and both provider flags are correct.
-6. Hard-refresh the browser.
+- Required secrets: `SEATS_AERO_API_KEY`, `SERPAPI_KEY`
 
 ## Verification
 
@@ -39,11 +74,13 @@ npm run build
 npm run deploy:dry
 ```
 
-All source-level regression, calculation, filtering, currency, recommendation, Worker, live-shaped simulation, exact-flight, nearby-airport, UI-retention, and v11.3.7 checks passed in the audit environment. JavaScript and JSX syntax parsing also passed. A clean production build must still be confirmed by GitHub Actions or Cloudflare because the isolated audit environment could not complete dependency installation from its internal npm registry.
+The complete logic, Worker, simulation, recommendation, currency, deployment, legacy UI-retention, and v11.4.0 round-trip test suites passed in the audit environment. TypeScript syntax transpilation also passed for all 27 JavaScript/JSX source files.
+
+The isolated audit environment could not run a clean Vite production build because its internal package registry did not contain the required frontend packages and public npm DNS was unavailable. GitHub Actions is configured to run `npm ci`, the complete test suite, `npm run build`, and a Wrangler dry run before deployment.
 
 See:
 
-- `RELEASE_NOTES_V11_3_7.md`
-- `UPDATE_INSTRUCTIONS_V11_3_7.md`
-- `INDEPENDENT_AUDIT_V11_3_7.md`
-- `AUDIT_EXECUTION_LOG_V11_3_7.txt`
+- `RELEASE_NOTES_V11_4_0.md`
+- `UPDATE_INSTRUCTIONS_V11_4_0.md`
+- `INDEPENDENT_AUDIT_V11_4_0.md`
+- `AUDIT_EXECUTION_LOG_V11_4_0.txt`

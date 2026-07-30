@@ -287,7 +287,7 @@ export function cashRowsFromDatasets(cashByKey, origin, destination) {
   }).sort((left, right) => left.price - right.price || String(left.searchDate).localeCompare(String(right.searchDate)));
 }
 
-async function searchAwardsLiveBundle({ proxyBase, origin, destination, date, programIds, flex = 0 }) {
+async function searchAwardsLiveBundle({ proxyBase, origin, destination, date, programIds, flex = 0, includeCash = true }) {
   const base = (proxyBase || "").replace(/\/$/, "");
   const sources = PROGRAMS.filter((p) => programIds.includes(p.id)).map((p) => p.source).join(",");
   const startDate = flex > 0 ? addDays(date, -flex) : date;
@@ -298,11 +298,13 @@ async function searchAwardsLiveBundle({ proxyBase, origin, destination, date, pr
 
   const CASH_FETCH_CAP = 12;
   const pairs = new Set();
-  for (const a of avail) {
-    if (a.YAvailable) pairs.add(`economy|${a.Date}`);
-    if (a.WAvailable) pairs.add(`premium|${a.Date}`);
-    if (a.JAvailable) pairs.add(`business|${a.Date}`);
-    if (a.FAvailable) pairs.add(`first|${a.Date}`);
+  if (includeCash) {
+    for (const a of avail) {
+      if (a.YAvailable) pairs.add(`economy|${a.Date}`);
+      if (a.WAvailable) pairs.add(`premium|${a.Date}`);
+      if (a.JAvailable) pairs.add(`business|${a.Date}`);
+      if (a.FAvailable) pairs.add(`first|${a.Date}`);
+    }
   }
   const pairList = [...pairs];
   const cashByKey = {};
@@ -395,6 +397,10 @@ export async function searchAwardsLive(args) {
 
 export async function searchAwardsWithCash(args) {
   return searchAwardsLiveBundle(args);
+}
+
+export async function searchAwardsOnly(args) {
+  return searchAwardsLiveBundle({ ...args, includeCash: false });
 }
 
 export async function searchAwards({ proxyBase = "", origin, destination, date, programIds, flex = 0 }) {

@@ -1,0 +1,33 @@
+Files added or changed from the v11.3.7 baseline
+
+Added:
+- AUDIT_EXECUTION_LOG_V11_4_0.txt
+- BUILD_ENVIRONMENT_LIMITATION_V11_4_0.txt
+- INDEPENDENT_AUDIT_V11_4_0.md
+- RELEASE_NOTES_V11_4_0.md
+- UPDATE_INSTRUCTIONS_V11_4_0.md
+- UPDATED_FILES_V11_4_0.txt
+- src/api/roundTrip.js
+- src/components/RoundTripResults.jsx
+- test-roundtrip-v11-4.mjs
+
+Changed:
+- README.md
+- START_HERE.md
+- functions/api/cashfare.js
+- functions/api/health.js
+- index.html
+- package.json
+- package-lock.json
+- src/App.jsx
+- src/api/flightApi.js
+- src/components/CashFares.jsx
+- src/components/RouteManager.jsx
+- test-deployment.mjs
+- test-enhancements-v11-3-5.mjs
+- test-enhancements-v11-3-7.mjs
+- test-functions.mjs
+
+Regenerated:
+- FILE_INVENTORY.txt
+- SHA256SUMS.txt

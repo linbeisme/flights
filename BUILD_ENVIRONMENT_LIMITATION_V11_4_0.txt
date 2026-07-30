@@ -1,0 +1,15 @@
+PointsBoard v11.4.0 Build Environment Limitation
+
+The audit container could not complete `npm ci` or `npm run build` because:
+1. public npm DNS resolution was unavailable; and
+2. the container's internal npm registry did not contain required packages including @tailwindcss/vite.
+
+This is an audit-environment dependency-access limitation, not a detected source-code failure.
+
+Completed instead:
+- full Node-based project test suite;
+- mocked Cloudflare Worker and SerpApi provider-flow tests;
+- TypeScript syntax transpilation for all 27 JavaScript/JSX source files;
+- deployment configuration and metadata tests.
+
+The included GitHub Actions workflow performs a clean dependency install, complete tests, production Vite build, and Wrangler dry run in the normal deployment environment. Production deployment should proceed only after that workflow passes.

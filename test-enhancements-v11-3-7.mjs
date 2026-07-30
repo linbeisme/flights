@@ -37,6 +37,6 @@ for (const label of ["Get cash fares", "Clear fares", "Reset filters", "Saved se
 assert.match(favicon, /fill="#dc2626"/);
 assert.match(favicon, />✈<\/text>/);
 assert.doesNotMatch(html, /✈|✈️/);
-assert.match(html, /PointsBoard v11\.3\.7/);
+assert.match(html, /PointsBoard v11\.4\.0/);
 
-console.log("✓ v11.3.7 minimal-update regression checks passed: original controls retained, add-route moved, cash fares reused, and single red favicon configured");
+console.log("✓ v11.4.0 retained-v11.3.7 regression checks passed: original controls retained, add-route moved, cash fares reused, and single red favicon configured");

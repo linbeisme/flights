@@ -6,6 +6,7 @@ import CashFares from "./components/CashFares.jsx";
 import RecommendationPanel from "./components/RecommendationPanel.jsx";
 import FxPanel from "./components/FxPanel.jsx";
 import SameFlightView from "./components/SameFlightView.jsx";
+import RoundTripResults from "./components/RoundTripResults.jsx";
 import { buildDefaultRoutes } from "./data/defaults.js";
 import { DEMO_ROUTES, getDemoResultsForRoutes } from "./data/demoData.js";
 import { DEFAULT_RECOMMENDATION_PREFS, enrichResult } from "./api/recommendationEngine.js";
@@ -14,6 +15,7 @@ import { assertLiveResults, isSafeLiveHistoryEntry, sanitizeLiveHistory } from "
 import { searchAwardsWithCash, applyFilters, DEFAULT_FILTERS } from "./api/flightApi.js";
 import { currenciesNeedingFx } from "./api/currency.js";
 import { dedupeExpandedResults, expandSelectedRoutes } from "./api/nearbyAirports.js";
+import { buildRoundTripCombinations, roundTripDatePairs, searchRoundTripAwardScenario, searchRoundTripCashFares } from "./api/roundTrip.js";
 
 // ── Persistent state (LocalStorage) ─────────────────────────────────
 const LS_ROUTES = "pointsboard.routes.v1";
@@ -81,6 +83,7 @@ export default function App() {
   const [cppLibraryError, setCppLibraryError] = useState("");
   const [fxRates, setFxRates] = useState(() => loadJSON(LS_FX, {}));
   const [cashAutoResults, setCashAutoResults] = useState(null);
+  const [roundTripData, setRoundTripData] = useState(null);
 
   useEffect(() => saveJSON(LS_ROUTES, routes), [routes]);
   useEffect(() => saveJSON(LS_SETTINGS, settings), [settings]);
@@ -112,12 +115,29 @@ export default function App() {
 
   const selectedRoutes = routes.filter((r) => selectedIds.includes(r.id));
   const routeExpansion = useMemo(() => expandSelectedRoutes(selectedRoutes), [selectedRoutes]);
+  const roundTripRoute = selectedRoutes.length === 1 && selectedRoutes[0].tripType === "roundtrip" ? selectedRoutes[0] : null;
+  const roundTripPairs = useMemo(
+    () => roundTripRoute ? roundTripDatePairs(roundTripRoute.date, roundTripRoute.returnDate, roundTripRoute.flex || 0) : [],
+    [roundTripRoute?.date, roundTripRoute?.returnDate, roundTripRoute?.flex]
+  );
+
+  useEffect(() => {
+    if (roundTripRoute && activeTab === "sameFlight") setActiveTab("rewards");
+  }, [roundTripRoute, activeTab]);
 
   // Cash tab fields follow the first selected route. A reward search also
   // sends its already-fetched live fare lists to the Cash Fares tab so the
   // same SerpApi lookups are not repeated.
   const cashPrefill = selectedRoutes[0]
-    ? { origin: selectedRoutes[0].origin, destination: selectedRoutes[0].destination, date: selectedRoutes[0].date, flex: selectedRoutes[0].flex || 0 }
+    ? {
+        origin: selectedRoutes[0].origin,
+        destination: selectedRoutes[0].destination,
+        date: selectedRoutes[0].date,
+        returnDate: selectedRoutes[0].returnDate || "",
+        tripType: selectedRoutes[0].tripType || "oneway",
+        cashCabin: selectedRoutes[0].cashCabin || "economy",
+        flex: selectedRoutes[0].tripType === "roundtrip" ? Math.min(3, selectedRoutes[0].flex || 0) : selectedRoutes[0].flex || 0,
+      }
     : null;
   const effectiveFilters = useMemo(() => ({ ...filters, pax }), [filters, pax]);
   const valuedResults = useMemo(() => results.map((row) => enrichResult(row, cppLibrary, fxRates)), [results, cppLibrary, fxRates]);
@@ -126,19 +146,21 @@ export default function App() {
 
   // ── Route CRUD ────────────────────────────────────────────────────
   const toggleSelect = (id) =>
-    setSelectedIds((ids) =>
-      ids.includes(id)
-        ? ids.filter((x) => x !== id)
-        : ids.length >= MAX_SELECTED
-          ? ids
-          : [...ids, id]
-    );
+    setSelectedIds((ids) => {
+      if (ids.includes(id)) return ids.filter((x) => x !== id);
+      const route = routes.find((item) => item.id === id);
+      const hasRoundTrip = ids.some((selectedId) => routes.find((item) => item.id === selectedId)?.tripType === "roundtrip");
+      if (route?.tripType === "roundtrip" || hasRoundTrip) return [id];
+      return ids.length >= MAX_SELECTED ? ids : [...ids, id];
+    });
 
-  const updateDate = (id, date) =>
-    setRoutes((rs) => rs.map((r) => (r.id === id ? { ...r, date } : r)));
-
-  const updateFlex = (id, flex) =>
-    setRoutes((rs) => rs.map((r) => (r.id === id ? { ...r, flex } : r)));
+  const updateRoute = (id, patch) =>
+    setRoutes((rs) => rs.map((r) => {
+      if (r.id !== id) return r;
+      const next = { ...r, ...patch };
+      if (next.tripType === "roundtrip") next.flex = Math.min(3, Number(next.flex || 0));
+      return next;
+    }));
 
   const updateNearby = (id, patch) =>
     setRoutes((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r)));
@@ -157,10 +179,15 @@ export default function App() {
     setSelectedIds((ids) => ids.filter((x) => x !== id));
   };
 
-  const addRoute = ({ origin, destination, date, flex = 0, nearbyOrigin = false, nearbyDestination = false, nearbyRadiusMiles = 50 }) => {
-    const route = { id: `${origin}-${destination}-${Date.now()}`, origin, destination, date, flex, nearbyOrigin, nearbyDestination, nearbyRadiusMiles };
+  const addRoute = ({ origin, destination, date, returnDate = null, tripType = "oneway", cashCabin = "economy", flex = 0, nearbyOrigin = false, nearbyDestination = false, nearbyRadiusMiles = 50 }) => {
+    const route = { id: `${origin}-${destination}-${Date.now()}`, origin, destination, date, returnDate, tripType, cashCabin, flex: tripType === "roundtrip" ? Math.min(3, flex) : flex, nearbyOrigin, nearbyDestination, nearbyRadiusMiles };
     setRoutes((rs) => [route, ...rs]);
-    setSelectedIds((ids) => (ids.length < MAX_SELECTED ? [...ids, route.id] : ids));
+    setSelectedIds((ids) => {
+      if (tripType === "roundtrip") return [route.id];
+      const hasRoundTrip = ids.some((selectedId) => routes.find((item) => item.id === selectedId)?.tripType === "roundtrip");
+      if (hasRoundTrip) return [route.id];
+      return ids.length < MAX_SELECTED ? [...ids, route.id] : ids;
+    });
   };
 
   const resetDefaults = () => {
@@ -168,23 +195,140 @@ export default function App() {
     setSelectedIds([]); // nothing pre-selected — not even TPE-ICN
   };
 
-  // ── Search across up to 5 selected routes ─────────────────────────
+  // ── Search across up to 5 one-way routes or one round trip ──────────
   async function runSearch() {
     if (selectedRoutes.length === 0) return;
     const expandedRoutes = routeExpansion.routes;
+
     if (settings.dataMode === "demo") {
+      if (roundTripRoute) {
+        setResults([]);
+        setRoundTripData(null);
+        setSearchedAt(Date.now());
+        setSearched(true);
+        setError("Round-trip mode requires live provider data. Demo mode preserves the existing one-way examples and performs no API calls.");
+        return;
+      }
       const ts = Date.now();
       const demo = getDemoResultsForRoutes(expandedRoutes).map((row) => ({ ...row, checkedAt: ts }));
+      setRoundTripData(null);
       setResults(demo);
       setSearchedAt(ts);
       setSearched(true);
       setError(demo.length ? "" : "No pre-built demo results exist for the selected base or nearby routes. Demo mode never calls live APIs.");
       return;
     }
+
     setLoading(true);
     setError("");
     setSearched(true);
     try {
+      if (roundTripRoute) {
+        if (!roundTripPairs.length) throw new Error("Return date must be after the departure date.");
+        const cashCabin = roundTripRoute.cashCabin || "economy";
+        const awardTasks = expandedRoutes.flatMap((route) =>
+          roundTripDatePairs(route.date, route.returnDate, route.flex || 0).map((pair) => ({ route, pair }))
+        );
+
+        const [awardScenarios, cashPerRoute] = await Promise.all([
+          mapWithConcurrency(awardTasks, 2, async ({ route, pair }) => ({
+            route,
+            pair,
+            awards: await searchRoundTripAwardScenario({
+              proxyBase: settings.proxyBase,
+              origin: route.origin,
+              destination: route.destination,
+              outboundDate: pair.outboundDate,
+              returnDate: pair.returnDate,
+              programIds: filters.programs,
+            }),
+          })),
+          mapWithConcurrency(expandedRoutes, 1, (route) => searchRoundTripCashFares({
+            proxyBase: settings.proxyBase,
+            origin: route.origin,
+            destination: route.destination,
+            departDate: route.date,
+            returnDate: route.returnDate,
+            flex: route.flex || 0,
+            cabin: cashCabin,
+            adults: 1,
+          })),
+        ]);
+
+        const ts = Date.now();
+        const cashRows = cashPerRoute.flat();
+        const allAwardRows = [];
+        const sameProgram = [];
+        const splitProgram = [];
+        const roundTripFilters = { ...effectiveFilters, cabins: [cashCabin] };
+
+        for (const scenario of awardScenarios) {
+          const outboundRaw = assertLiveResults(scenario.awards.outbound || []).map((row) => ({ ...row, checkedAt: ts }));
+          const returnRaw = assertLiveResults(scenario.awards.return || []).map((row) => ({ ...row, checkedAt: ts }));
+          const outbound = applyFilters(outboundRaw.map((row) => enrichResult(row, cppLibrary, fxRates)), roundTripFilters);
+          const returning = applyFilters(returnRaw.map((row) => enrichResult(row, cppLibrary, fxRates)), roundTripFilters);
+          allAwardRows.push(...outboundRaw, ...returnRaw);
+          const scenarioCash = cashRows.filter((row) =>
+            row.origin === scenario.route.origin &&
+            row.destination === scenario.route.destination &&
+            row.datePairKey === scenario.pair.key &&
+            row.cabin === cashCabin
+          );
+          const combinations = buildRoundTripCombinations({ outboundRows: outbound, returnRows: returning, cashRows: scenarioCash, pax });
+          sameProgram.push(...combinations.sameProgram);
+          splitProgram.push(...combinations.splitProgram);
+        }
+
+        const sortCombos = (left, right) => {
+          const leftCost = Number.isFinite(left.economicCost) ? left.economicCost : Infinity;
+          const rightCost = Number.isFinite(right.economicCost) ? right.economicCost : Infinity;
+          const leftCash = Number.isFinite(left.cashFare) ? left.cashFare : Infinity;
+          const rightCash = Number.isFinite(right.cashFare) ? right.cashFare : Infinity;
+          return leftCost - rightCost || (right.cpp || -Infinity) - (left.cpp || -Infinity) || leftCash - rightCash;
+        };
+        const unique = (rows) => [...new Map(rows.map((row) => [row.id, row])).values()].sort(sortCombos).slice(0, 60);
+        const safeAwardRows = dedupeExpandedResults(allAwardRows);
+        const data = {
+          route: roundTripRoute,
+          sameProgram: unique(sameProgram),
+          splitProgram: unique(splitProgram),
+          cashRows,
+          searchedAt: ts,
+        };
+        setResults(safeAwardRows);
+        setRoundTripData(data);
+        setSearchedAt(ts);
+        setCashAutoResults({
+          id: ts,
+          tripType: "roundtrip",
+          rows: cashRows,
+          searchedAt: ts,
+          cabins: [cashCabin],
+          cabin: cashCabin,
+          routeCount: 1,
+          returnDate: roundTripRoute.returnDate,
+          flex: roundTripRoute.flex || 0,
+        });
+        const label = `${roundTripRoute.origin}⇄${roundTripRoute.destination} ${roundTripRoute.date}–${roundTripRoute.returnDate}${roundTripRoute.flex ? ` shift ±${roundTripRoute.flex}d` : ""} · ${cashCabin}${pax > 1 ? ` · ${pax} pax` : ""}`;
+        setHistory((historyRows) => [
+          {
+            id: `h-${ts}`,
+            schemaVersion: 4,
+            tripType: "roundtrip",
+            dataMode: "live",
+            label,
+            ts,
+            pax,
+            routes: selectedRoutes,
+            results: safeAwardRows.slice(0, 220),
+            roundTripData: data,
+          },
+          ...historyRows,
+        ].slice(0, HISTORY_MAX));
+        return;
+      }
+
+      setRoundTripData(null);
       const perRoute = await mapWithConcurrency(expandedRoutes, 4, (r) =>
         searchAwardsWithCash({
           proxyBase: settings.proxyBase,
@@ -208,6 +352,7 @@ export default function App() {
       setSearchedAt(ts);
       setCashAutoResults({
         id: ts,
+        tripType: "oneway",
         rows: cashRows,
         searchedAt: ts,
         cabins: [...filters.cabins],
@@ -220,12 +365,13 @@ export default function App() {
           .join(" · ") + (pax > 1 ? ` · ${pax} pax` : "");
       setHistory((h) =>
         [
-          { id: `h-${ts}`, schemaVersion: 3, dataMode: "live", label, ts, pax, routes: selectedRoutes, results: merged.slice(0, 180) },
+          { id: `h-${ts}`, schemaVersion: 3, tripType: "oneway", dataMode: "live", label, ts, pax, routes: selectedRoutes, results: merged.slice(0, 180) },
           ...h,
         ].slice(0, HISTORY_MAX)
       );
     } catch (e) {
       setResults([]);
+      setRoundTripData(null);
       setSearchedAt(null);
       setError(e.message || "Unknown error");
     } finally {
@@ -236,6 +382,7 @@ export default function App() {
   // Clear results: wipe the current result set (history keeps its copies).
   function clearResults() {
     setResults([]);
+    setRoundTripData(null);
     setSearchedAt(null);
     setSearched(false);
     setError("");
@@ -255,10 +402,12 @@ export default function App() {
       return;
     }
     setResults(entry.results);
+    setRoundTripData(entry.tripType === "roundtrip" ? entry.roundTripData || null : null);
     setSearchedAt(entry.ts);
     setPax(entry.pax || 1);
     setSearched(true);
     setError("");
+    setActiveTab("rewards");
   }
 
   return (
@@ -268,7 +417,7 @@ export default function App() {
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-3">
           <h1 className="flex items-baseline gap-2 font-data text-lg font-bold tracking-[0.2em]">
             <span>POINTS<span className="text-magenta">BOARD</span></span>
-            <span className="rounded border border-line bg-card px-1.5 py-0.5 text-[10px] font-bold tracking-normal text-ink-soft">v11.3.7</span>
+            <span className="rounded border border-line bg-card px-1.5 py-0.5 text-[10px] font-bold tracking-normal text-ink-soft">v11.4.0</span>
           </h1>
           <p className="hidden text-xs text-ink-soft sm:block">
             award space · taxes · cash fares · cents per point
@@ -346,8 +495,7 @@ export default function App() {
             routes={routes}
             selectedIds={selectedIds}
             onToggleSelect={toggleSelect}
-            onUpdateDate={updateDate}
-            onUpdateFlex={updateFlex}
+            onUpdateRoute={updateRoute}
             onUpdateNearby={updateNearby}
             onReverse={reverseRoute}
             onDelete={deleteRoute}
@@ -364,22 +512,28 @@ export default function App() {
               ["rewards", "Recommendations + Results"],
               ["sameFlight", "Exact Same Flight"],
               ["cash", "Cash Fares"],
-            ].map(([id, label]) => (
-              <button
-                key={id}
-                type="button"
-                role="tab"
-                aria-selected={activeTab === id}
-                onClick={() => setActiveTab(id)}
-                className={`-mb-0.5 rounded-t border-2 border-b-0 px-4 py-2 font-data text-sm font-semibold ${
-                  activeTab === id
-                    ? "border-ink bg-card text-ink"
-                    : "border-transparent bg-paper-deep text-ink-soft hover:text-ink"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+            ].map(([id, label]) => {
+              const disabled = id === "sameFlight" && Boolean(roundTripRoute);
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === id}
+                  aria-disabled={disabled}
+                  disabled={disabled}
+                  title={disabled ? "Exact Same Flight remains available for one-way searches; round trips are shown as paired outbound and return legs." : undefined}
+                  onClick={() => !disabled && setActiveTab(id)}
+                  className={`-mb-0.5 rounded-t border-2 border-b-0 px-4 py-2 font-data text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${
+                    activeTab === id
+                      ? "border-ink bg-card text-ink"
+                      : "border-transparent bg-paper-deep text-ink-soft hover:text-ink"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
 
           <FxPanel
@@ -399,11 +553,12 @@ export default function App() {
                 selectedRoutes.map((r) => (
                   <span key={r.id} className="whitespace-nowrap">
                     <span className="text-lg font-bold">{r.origin}</span>
-                    <span aria-hidden="true" className="mx-1 text-ink-soft">→</span>
+                    <span aria-hidden="true" className="mx-1 text-ink-soft">{r.tripType === "roundtrip" ? "⇄" : "→"}</span>
                     <span className="text-lg font-bold">{r.destination}</span>
                     <span className="ml-1.5 text-xs text-ink-soft">
-                      {r.date}
-                      {(r.flex || 0) > 0 && <span className="text-magenta"> ±{r.flex}d</span>}
+                      {r.date}{r.tripType === "roundtrip" && r.returnDate ? ` to ${r.returnDate}` : ""}
+                      {(r.flex || 0) > 0 && <span className="text-magenta"> {r.tripType === "roundtrip" ? "shift " : ""}±{r.flex}d</span>}
+                      {r.tripType === "roundtrip" && <span className="ml-1 rounded border border-magenta px-1 py-0.5 text-[9px] font-bold uppercase text-magenta">{r.cashCabin || "economy"} cash cabin</span>}
                     </span>
                   </span>
                 ))
@@ -417,6 +572,11 @@ export default function App() {
             {selectedRoutes.length > 0 && routeExpansion.routes.length !== selectedRoutes.length && (
               <div className="w-full rounded border border-deal bg-deal-soft px-2 py-1 text-[11px] text-deal">
                 Nearby-airport expansion: {selectedRoutes.length} saved route{selectedRoutes.length === 1 ? "" : "s"} → {routeExpansion.routes.length} bounded route combination{routeExpansion.routes.length === 1 ? "" : "s"}{routeExpansion.truncated ? " (capped to protect API quota)" : ""}.
+              </div>
+            )}
+            {roundTripRoute && (
+              <div className="w-full rounded border border-magenta bg-magenta/5 px-2 py-1 text-[11px] text-ink">
+                Round-trip mode will evaluate {routeExpansion.routes.length * roundTripPairs.length} route/date-pair scenario{routeExpansion.routes.length * roundTripPairs.length === 1 ? "" : "s"}. Dates shift together, cash flexibility is capped at ±3 days, and only the selected {roundTripRoute.cashCabin || "economy"} cabin is priced.
               </div>
             )}
 
@@ -476,12 +636,14 @@ export default function App() {
               >
                 {loading
                   ? "Searching…"
-                  : `Search award space${routeExpansion.routes.length > 1 ? ` (${routeExpansion.routes.length} route combinations)` : ""}`}
+                  : roundTripRoute
+                    ? `Search round trip (${routeExpansion.routes.length * roundTripPairs.length} pair${routeExpansion.routes.length * roundTripPairs.length === 1 ? "" : "s"})`
+                    : `Search award space${routeExpansion.routes.length > 1 ? ` (${routeExpansion.routes.length} route combinations)` : ""}`}
               </button>
             </div>
           </div>
 
-          {activeTab === "rewards" && (
+          {activeTab === "rewards" && !roundTripRoute && (
             <div className="mb-3 flex flex-wrap items-center gap-3 rounded border border-line bg-paper-deep px-3 py-2">
               <label htmlFor="sort-results" className="text-xs font-semibold uppercase tracking-[0.15em] text-heading">Sort by</label>
               <select id="sort-results" value={filters.sort} onChange={(e) => setFilters((f) => ({ ...f, sort: e.target.value }))} className="min-w-64 rounded border-2 border-magenta bg-magenta/10 px-2.5 py-2.5 text-sm font-semibold">
@@ -497,30 +659,34 @@ export default function App() {
           )}
 
           {activeTab === "rewards" ? (
-            <>
-              <RecommendationPanel
-                results={filtered}
-                prefs={recommendationPrefs}
-                onPrefsChange={setRecommendationPrefs}
-                dataMode={settings.dataMode || "live"}
-                cppLibrary={cppLibrary}
-                cppLibraryError={cppLibraryError}
-                fxRates={fxRates}
-                searchedAt={searchedAt}
-                pax={pax}
-              />
-              <FlightResults
-                results={filtered}
-                total={results.length}
-                loading={loading}
-                error={error}
-                searched={searched}
-                routes={selectedRoutes}
-                pax={pax}
-                searchedAt={searchedAt}
-                dataMode={settings.dataMode || "live"}
-              />
-            </>
+            roundTripRoute ? (
+              <RoundTripResults data={roundTripData} loading={loading} error={error} searched={searched} searchedAt={searchedAt} />
+            ) : (
+              <>
+                <RecommendationPanel
+                  results={filtered}
+                  prefs={recommendationPrefs}
+                  onPrefsChange={setRecommendationPrefs}
+                  dataMode={settings.dataMode || "live"}
+                  cppLibrary={cppLibrary}
+                  cppLibraryError={cppLibraryError}
+                  fxRates={fxRates}
+                  searchedAt={searchedAt}
+                  pax={pax}
+                />
+                <FlightResults
+                  results={filtered}
+                  total={results.length}
+                  loading={loading}
+                  error={error}
+                  searched={searched}
+                  routes={selectedRoutes}
+                  pax={pax}
+                  searchedAt={searchedAt}
+                  dataMode={settings.dataMode || "live"}
+                />
+              </>
+            )
           ) : (
             <SameFlightView results={filtered} pax={pax} dataMode={settings.dataMode || "live"} />
           )}
@@ -529,7 +695,7 @@ export default function App() {
       </main>
 
       <footer className="mx-auto max-w-6xl px-4 pb-6 text-[11px] text-ink-soft">
-        Award data © seats.aero. Live mode never creates a synthetic cash fare. CPP uses an exact cash itinerary when flight numbers match; otherwise it is labeled as a probable schedule match, same-airline benchmark, or route/cabin benchmark. When no live fare is available, cash fare, CPP, and cash-based savings remain unavailable. CPP = ((cash fare − taxes and fees) ÷ points) × 100. <span className="font-data font-semibold text-magenta">build v11.3.7 · popup dismissal + automatic FX + saved-route toggle + flexible cash dates</span>
+        Award data © seats.aero. Live mode never creates a synthetic cash fare. CPP uses an exact cash itinerary when flight numbers match; otherwise it is labeled as a probable schedule match, same-airline benchmark, or route/cabin benchmark. When no live fare is available, cash fare, CPP, and cash-based savings remain unavailable. CPP = ((cash fare − taxes and fees) ÷ points) × 100. <span className="font-data font-semibold text-magenta">build v11.4.0 · round-trip award pairing + true round-trip cash fares + whole-trip date shifting</span>
       </footer>
     </div>
   );
