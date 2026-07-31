@@ -20,7 +20,7 @@ assert.match(app, /applyFilters\([\s\S]*effectiveFilters/);
 assert.match(app, /activeFilters: effectiveFilters/);
 assert.match(roundTrip, /Programs, cabin, stops, time windows, layover duration, total travel time/);
 
-assert.match(cash, /grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6/);
+assert.match(cash, /grid items-stretch gap-3 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-8/);
 assert.match(cash, /md:grid-cols-\[minmax\(0,1fr\)_minmax\(230px,auto\)\]/);
 assert.match(cash, /visibleShown = tripType === "roundtrip" \? shown\.slice\(0, 20\)/);
 assert.match(roundTrip, /rows\.slice\(0, 20\)/);
@@ -106,4 +106,4 @@ try {
   globalThis.fetch = originalFetch;
 }
 
-console.log("✓ v11.4.3 live filters, aligned layout, operating-airline labels, saved-route sorting/filtering, result caps, FX expiry, and CPP reference checks passed");
+console.log("✓ v11.4.4 live filters, aligned layout, operating-airline labels, saved-route sorting/filtering, result caps, FX expiry, and CPP reference checks passed");

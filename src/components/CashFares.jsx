@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { AIRPORTS, CABINS, normalizeAirportInput } from "../data/defaults.js";
-import { searchCashFares, cashSearchDates, formatDuration, applyCashFilters, filterCashRowsByCabins, CASH_FILTERS } from "../api/flightApi.js";
+import { searchCashFares, cashSearchDates, formatDuration, connectionLayoverDetails, applyCashFilters, filterCashRowsByCabins, CASH_FILTERS } from "../api/flightApi.js";
 import { BASE_CURRENCY, formatMoney } from "../api/currency.js";
 import { roundTripDatePairs, searchRoundTripCashFares } from "../api/roundTrip.js";
+import BookingOptions from "./BookingOptions.jsx";
 
 // ── CashFares (v9) ──────────────────────────────────────────────────
 // • Route/date pre-fill from the reward tab's first selected route
@@ -49,21 +50,21 @@ function HourRange({ label, value, onChange }) {
   const [h1, h2] = value;
   const clamp = (v) => Math.max(0, Math.min(24, Number.isFinite(v) ? v : 0));
   return (
-    <div className="rounded border border-line bg-card p-2">
-      <span className={FIELD_LABEL}>{label}</span>
+    <div className="min-w-0 rounded border border-line bg-card p-2">
+      <span className={`${FIELD_LABEL} mb-1 block`}>{label}</span>
       <div className="flex items-center gap-1">
         <input
           type="number" min={0} max={24} value={h1}
           aria-label={`${label} from hour`}
           onChange={(e) => onChange([clamp(Number(e.target.value)), h2])}
-          className={`${FIELD_INPUT} w-14 text-center`}
+          className={`${FIELD_INPUT} min-w-0 flex-1 text-center`}
         />
         <span className="text-[10px] text-ink-soft">to</span>
         <input
           type="number" min={0} max={24} value={h2}
           aria-label={`${label} to hour`}
           onChange={(e) => onChange([h1, clamp(Number(e.target.value))])}
-          className={`${FIELD_INPUT} w-14 text-center`}
+          className={`${FIELD_INPUT} min-w-0 flex-1 text-center`}
         />
         <span className="text-[10px] text-ink-soft">h</span>
       </div>
@@ -71,7 +72,7 @@ function HourRange({ label, value, onChange }) {
   );
 }
 
-function CashRow({ f }) {
+function CashRow({ f, proxyBase }) {
   const cab = cabinMeta(f.cabin);
   const airlines = airlineText(f.carriers, f.operatingCarriers);
   return (
@@ -91,26 +92,22 @@ function CashRow({ f }) {
             ) : (
               <>
                 {f.stops} stop{f.stops > 1 ? "s" : ""}
-                {f.connections.length > 0 && (
+                {connectionLayoverDetails(f.connections, f.layovers).length > 0 && (
                   <>
                     {" via "}
-                    {f.connections.map((c, i) => (
-                      <span key={`${c}-${i}`}>
+                    {connectionLayoverDetails(f.connections, f.layovers).map((detail, i) => (
+                      <span key={`${detail.airport}-${i}`}>
                         {i > 0 && ", "}
                         <span
                           className="rounded bg-magenta/10 px-1 font-data text-sm font-bold text-magenta"
-                          title={`Connection / layover airport: ${c}`}
+                          title={`Connection airport ${detail.airport}; ${detail.minutes == null ? "layover duration unavailable" : `layover ${formatDuration(detail.minutes)}`}`}
                         >
-                          {c}
+                          {detail.label}
                         </span>
                       </span>
                     ))}
                   </>
                 )}
-                {f.layovers?.length > 0 &&
-                  ` · layover${f.layovers.length > 1 ? "s" : ""} ${f.layovers
-                    .map((m) => formatDuration(m))
-                    .join(", ")}`}
               </>
             )}
             {f.totalMinutes != null && <> · {formatDuration(f.totalMinutes)}</>}
@@ -141,6 +138,7 @@ function CashRow({ f }) {
           <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-deal">
             live cash fare
           </div>
+          <BookingOptions proxyBase={proxyBase} bookingToken={f.bookingToken} searchUrl={f.searchUrl} />
         </div>
       </div>
     </li>
@@ -158,7 +156,7 @@ function RoundTripLeg({ label, leg }) {
       </div>
       <p className="text-[11px] text-ink-soft">
         {leg?.stops == null ? "Schedule unavailable" : leg.stops === 0 ? "Nonstop" : `${leg.stops} stop${leg.stops === 1 ? "" : "s"}`}
-        {leg?.connections?.length ? ` via ${leg.connections.join(", ")}` : ""}
+        {connectionLayoverDetails(leg?.connections, leg?.layovers).length ? ` via ${connectionLayoverDetails(leg?.connections, leg?.layovers).map((detail) => detail.label).join(" · ")}` : ""}
         {leg?.totalMinutes != null ? ` · ${formatDuration(leg.totalMinutes)}` : ""}
       </p>
       {leg?.flightNumbers?.length > 0 && <p className="font-data text-[10px] text-ink-soft">{leg.flightNumbers.join(" / ")}</p>}
@@ -166,7 +164,7 @@ function RoundTripLeg({ label, leg }) {
   );
 }
 
-function RoundTripCashRow({ f }) {
+function RoundTripCashRow({ f, proxyBase }) {
   const cab = cabinMeta(f.cabin);
   const airlines = airlineText(f.carriers, f.operatingCarriers);
   return (
@@ -194,6 +192,7 @@ function RoundTripCashRow({ f }) {
         <RoundTripLeg label="Return" leg={f.return} />
       </div>
       <p className="mt-2 text-[10px] text-ink-soft">{f.providerRequests ? `${f.providerRequests} SerpApi request${f.providerRequests === 1 ? "" : "s"} used for this date pair` : "Live airline and operating-airline details are shown above the fare."}</p>
+      <BookingOptions proxyBase={proxyBase} bookingToken={f.bookingToken} searchUrl={f.searchUrl} />
     </li>
   );
 }
@@ -569,10 +568,10 @@ export default function CashFares({ proxyBase, prefill, autoResults }) {
             </div>
           )}
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-            <div className="rounded border border-line bg-card p-2">
-              <span className={FIELD_LABEL}>Stops</span>
-              <div className="flex gap-1">
+          <div className="grid items-stretch gap-3 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-8">
+            <div className="min-w-0 rounded border border-line bg-card p-2 sm:col-span-2 xl:col-span-2 2xl:col-span-2">
+              <span className={`${FIELD_LABEL} mb-1 block`}>Stops</span>
+              <div className="grid grid-cols-2 gap-1 sm:grid-cols-4">
                 {[
                   ["any", "Any", "No stop limit"],
                   ["0", "Direct", "Nonstop flights only"],
@@ -585,7 +584,7 @@ export default function CashFares({ proxyBase, prefill, autoResults }) {
                     onClick={() => setCf((f) => ({ ...f, stops: val }))}
                     aria-pressed={cf.stops === val}
                     title={tip}
-                    className={`rounded border px-2 py-1 text-[11px] ${
+                    className={`min-w-0 whitespace-nowrap rounded border px-1.5 py-1 text-[11px] ${
                       cf.stops === val
                         ? "border-magenta bg-magenta/10 font-semibold text-ink"
                         : "border-line bg-card text-ink-soft hover:border-ink"
@@ -597,8 +596,8 @@ export default function CashFares({ proxyBase, prefill, autoResults }) {
               </div>
             </div>
 
-            <label className="rounded border border-line bg-card p-2">
-              <span className={FIELD_LABEL}>Connection airport(s)</span>
+            <label className="min-w-0 rounded border border-line bg-card p-2 sm:col-span-2 xl:col-span-2 2xl:col-span-2">
+              <span className={`${FIELD_LABEL} mb-1 block`}>Connection airport(s)</span>
               <input
                 value={cf.connections}
                 onChange={(e) => setCf((f) => ({ ...f, connections: e.target.value }))}
@@ -607,29 +606,29 @@ export default function CashFares({ proxyBase, prefill, autoResults }) {
               />
             </label>
 
-            <div className="rounded border border-line bg-card p-2">
-              <span className={FIELD_LABEL}>Total travel time (h)</span>
+            <div className="min-w-0 rounded border border-line bg-card p-2">
+              <span className={`${FIELD_LABEL} mb-1 block`}>Total travel time (h)</span>
               <div className="flex items-center gap-1">
                 <input type="number" min={0} value={cf.totalMinH} placeholder="min"
                   onChange={(e) => setCf((f) => ({ ...f, totalMinH: e.target.value }))}
-                  className={`${FIELD_INPUT} w-16 text-center`} aria-label="Minimum total travel time in hours" />
+                  className={`${FIELD_INPUT} min-w-0 flex-1 text-center`} aria-label="Minimum total travel time in hours" />
                 <span className="text-[10px] text-ink-soft">to</span>
                 <input type="number" min={0} value={cf.totalMaxH} placeholder="max"
                   onChange={(e) => setCf((f) => ({ ...f, totalMaxH: e.target.value }))}
-                  className={`${FIELD_INPUT} w-16 text-center`} aria-label="Maximum total travel time in hours" />
+                  className={`${FIELD_INPUT} min-w-0 flex-1 text-center`} aria-label="Maximum total travel time in hours" />
               </div>
             </div>
 
-            <div className="rounded border border-line bg-card p-2">
-              <span className={FIELD_LABEL}>Layover duration (h)</span>
+            <div className="min-w-0 rounded border border-line bg-card p-2">
+              <span className={`${FIELD_LABEL} mb-1 block`}>Layover duration (h)</span>
               <div className="flex items-center gap-1">
                 <input type="number" min={0} step="0.5" value={cf.layoverMinH} placeholder="min"
                   onChange={(e) => setCf((f) => ({ ...f, layoverMinH: e.target.value }))}
-                  className={`${FIELD_INPUT} w-16 text-center`} aria-label="Minimum layover in hours" />
+                  className={`${FIELD_INPUT} min-w-0 flex-1 text-center`} aria-label="Minimum layover in hours" />
                 <span className="text-[10px] text-ink-soft">to</span>
                 <input type="number" min={0} step="0.5" value={cf.layoverMaxH} placeholder="max"
                   onChange={(e) => setCf((f) => ({ ...f, layoverMaxH: e.target.value }))}
-                  className={`${FIELD_INPUT} w-16 text-center`} aria-label="Maximum layover in hours" />
+                  className={`${FIELD_INPUT} min-w-0 flex-1 text-center`} aria-label="Maximum layover in hours" />
               </div>
             </div>
 
@@ -684,7 +683,7 @@ export default function CashFares({ proxyBase, prefill, autoResults }) {
           {visibleShown.length > 0 ? (
             <ul className="flex flex-col gap-2">
               {visibleShown.map((f) => (
-                tripType === "roundtrip" ? <RoundTripCashRow key={f.id} f={f} /> : <CashRow key={f.id} f={f} />
+                tripType === "roundtrip" ? <RoundTripCashRow key={f.id} f={f} proxyBase={proxyBase} /> : <CashRow key={f.id} f={f} proxyBase={proxyBase} />
               ))}
             </ul>
           ) : (

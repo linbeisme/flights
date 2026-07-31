@@ -1,4 +1,4 @@
-import { applyFilters, formatDuration } from "../api/flightApi.js";
+import { applyFilters, formatDuration, connectionLayoverDetails } from "../api/flightApi.js";
 import { BASE_CURRENCY, formatMoney } from "../api/currency.js";
 import { AIRLINE_NAMES, PROGRAMS } from "../data/defaults.js";
 
@@ -29,7 +29,11 @@ function Leg({ label, leg }) {
           <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-magenta">{label}</p>
           <p className="font-data text-sm font-bold">{leg.origin} → {leg.destination} · {leg.date}</p>
           <p className="text-[11px] text-ink-soft">{leg.departTime || "—"} → {leg.arriveTime || "—"}{leg.arrivesNextDay ? " +1" : ""} · {leg.stops == null ? "stops unavailable" : leg.stops === 0 ? "nonstop" : `${leg.stops} stop${leg.stops === 1 ? "" : "s"}`}{leg.totalMinutes != null ? ` · ${formatDuration(leg.totalMinutes)}` : ""}</p>
-          {leg.connections?.length > 0 && <p className="text-[10px] text-ink-soft">Via {leg.connections.join(", ")}</p>}
+          {connectionLayoverDetails(leg.connections, leg.layovers).length > 0 && (
+            <p className="text-[10px] text-ink-soft">
+              Via {connectionLayoverDetails(leg.connections, leg.layovers).map((detail) => detail.label).join(" · ")}
+            </p>
+          )}
           {leg.flightNumbers && <p className="font-data text-[10px] text-ink-soft">{leg.flightNumbers}</p>}
         </div>
         <div className="text-right">

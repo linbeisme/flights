@@ -11,6 +11,7 @@
 import { onRequest as searchHandler } from "../functions/api/search.js";
 import { onRequest as cashfareHandler } from "../functions/api/cashfare.js";
 import { onRequest as healthHandler } from "../functions/api/health.js";
+import { onRequest as bookingHandler } from "../functions/api/booking.js";
 
 export default {
   async fetch(request, env, ctx) {
@@ -24,6 +25,9 @@ export default {
     }
     if (url.pathname === "/api/health" || url.pathname === "/api/health/") {
       return healthHandler({ request, env, ctx });
+    }
+    if (url.pathname === "/api/booking" || url.pathname === "/api/booking/") {
+      return bookingHandler({ request, env, ctx });
     }
     if (url.pathname.startsWith("/api/")) {
       return new Response(JSON.stringify({ error: "Unknown API route" }), {

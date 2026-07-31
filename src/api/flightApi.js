@@ -491,8 +491,9 @@ export function applyCashFilters(rows, f) {
     }
     if (f.totalMinH !== "" && (r.totalMinutes == null || r.totalMinutes < Number(f.totalMinH) * 60)) return false;
     if (f.totalMaxH !== "" && (r.totalMinutes == null || r.totalMinutes > Number(f.totalMaxH) * 60)) return false;
-    if (f.layoverMinH !== "" && (!r.layovers?.length || Math.min(...r.layovers) < Number(f.layoverMinH) * 60)) return false;
-    if (f.layoverMaxH !== "" && (!r.layovers?.length || Math.max(...r.layovers) > Number(f.layoverMaxH) * 60)) return false;
+    const finiteLayovers = (r.layovers || []).filter(Number.isFinite);
+    if (f.layoverMinH !== "" && (!finiteLayovers.length || Math.min(...finiteLayovers) < Number(f.layoverMinH) * 60)) return false;
+    if (f.layoverMaxH !== "" && (!finiteLayovers.length || Math.max(...finiteLayovers) > Number(f.layoverMaxH) * 60)) return false;
     const [d1, d2] = f.depWindow, [a1, a2] = f.arrWindow;
     if (d1 > 0 || d2 < 24) {
       if (r.departMin == null || r.departMin < d1 * 60 || r.departMin > d2 * 60) return false;
@@ -573,11 +574,12 @@ export function applyFilters(results, f) {
     if (excludeCodes.length && rowConnections.some((c) => excludeCodes.includes(c))) return false;
     if (includeCodes.length && !rowConnections.some((c) => includeCodes.includes(c))) return false;
 
-    if (f.layoverMinH !== "" && r.layovers.length > 0) {
-      if (Math.min(...r.layovers) < Number(f.layoverMinH) * 60) return false;
+    const finiteLayovers = (r.layovers || []).filter(Number.isFinite);
+    if (f.layoverMinH !== "" && finiteLayovers.length > 0) {
+      if (Math.min(...finiteLayovers) < Number(f.layoverMinH) * 60) return false;
     }
-    if (f.layoverMaxH !== "" && r.layovers.length > 0) {
-      if (Math.max(...r.layovers) > Number(f.layoverMaxH) * 60) return false;
+    if (f.layoverMaxH !== "" && finiteLayovers.length > 0) {
+      if (Math.max(...finiteLayovers) > Number(f.layoverMaxH) * 60) return false;
     }
 
     if (f.totalMinH !== "" && r.totalMinutes != null) {
@@ -590,7 +592,7 @@ export function applyFilters(results, f) {
   });
 
   const layoverSum = (r) =>
-    r.stops == null ? 1e9 : r.layovers.reduce((x, y) => x + y, 0);
+    r.stops == null ? 1e9 : (r.layovers || []).filter(Number.isFinite).reduce((x, y) => x + y, 0);
   const sorters = {
     cpp: (a, b) => (b.cpp ?? -1) - (a.cpp ?? -1),
     points: (a, b) => a.points - b.points,
@@ -607,4 +609,17 @@ export function applyFilters(results, f) {
 export function formatDuration(min) {
   if (min == null) return "—";
   return `${Math.floor(min / 60)}h ${pad(min % 60)}m`;
+}
+
+export function connectionLayoverDetails(connections = [], layovers = []) {
+  const airports = Array.isArray(connections) ? connections : [];
+  const minutes = Array.isArray(layovers) ? layovers : [];
+  return airports.map((airport, index) => {
+    const layoverMinutes = Number.isFinite(minutes[index]) ? minutes[index] : null;
+    return {
+      airport: String(airport || "").toUpperCase(),
+      minutes: layoverMinutes,
+      label: `${String(airport || "").toUpperCase()} (${layoverMinutes == null ? "layover unavailable" : formatDuration(layoverMinutes)})`,
+    };
+  }).filter((item) => item.airport);
 }

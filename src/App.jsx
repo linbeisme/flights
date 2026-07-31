@@ -11,7 +11,7 @@ import CppReferencePanel from "./components/CppReferencePanel.jsx";
 import { buildDefaultRoutes } from "./data/defaults.js";
 import { DEMO_ROUTES, getDemoResultsForRoutes } from "./data/demoData.js";
 import { DEFAULT_RECOMMENDATION_PREFS, enrichResult } from "./api/recommendationEngine.js";
-import { EMPTY_CPP_LIBRARY, loadCppLibrary } from "./api/cppLibrary.js";
+import { EMPTY_CPP_LIBRARY, loadCppLibrary, loadStoredCppOverride, saveStoredCppOverride, clearStoredCppOverride } from "./api/cppLibrary.js";
 import { assertLiveResults, isSafeLiveHistoryEntry, sanitizeLiveHistory } from "./api/modeIntegrity.js";
 import { searchAwardsWithCash, applyFilters, DEFAULT_UI_FILTERS } from "./api/flightApi.js";
 import { currenciesNeedingFx } from "./api/currency.js";
@@ -85,6 +85,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState("rewards"); // rewards | sameFlight | cash
   const [recommendationPrefs, setRecommendationPrefs] = useState({ ...DEFAULT_RECOMMENDATION_PREFS });
   const [cppLibrary, setCppLibrary] = useState(EMPTY_CPP_LIBRARY);
+  const [baseCppLibrary, setBaseCppLibrary] = useState(EMPTY_CPP_LIBRARY);
   const [cppLibraryError, setCppLibraryError] = useState("");
   const [fxRates, setFxRates] = useState(() => loadJSON(LS_FX, {}));
   const [cashAutoResults, setCashAutoResults] = useState(null);
@@ -97,10 +98,43 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
     loadCppLibrary()
-      .then((library) => { if (!cancelled) { setCppLibrary(library); setCppLibraryError(""); } })
+      .then((library) => {
+        if (cancelled) return;
+        setBaseCppLibrary(library);
+        const stored = loadStoredCppOverride();
+        if (stored) {
+          try {
+            setCppLibrary(saveStoredCppOverride(stored));
+          } catch {
+            clearStoredCppOverride();
+            setCppLibrary(library);
+          }
+        } else {
+          setCppLibrary(library);
+        }
+        setCppLibraryError("");
+      })
       .catch((err) => { if (!cancelled) setCppLibraryError(err.message || "CPP library failed to load"); });
     return () => { cancelled = true; };
   }, []);
+
+  function applyCppOverride(document) {
+    try {
+      const nextLibrary = saveStoredCppOverride(document);
+      setCppLibrary(nextLibrary);
+      setCppLibraryError("");
+      return nextLibrary;
+    } catch (err) {
+      setCppLibraryError(err.message || "CPP override could not be applied");
+      throw err;
+    }
+  }
+
+  function resetCppOverride() {
+    clearStoredCppOverride();
+    setCppLibrary(baseCppLibrary);
+    setCppLibraryError("");
+  }
 
   // Day/Night: flip the .dark class on <html>; tokens do the rest.
   useEffect(() => {
@@ -506,7 +540,7 @@ export default function App() {
         <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-3 px-4 py-3">
           <h1 className="flex items-baseline gap-2 font-data text-lg font-bold tracking-[0.2em]">
             <span>POINTS<span className="text-magenta">BOARD</span></span>
-            <span className="rounded border border-line bg-card px-1.5 py-0.5 text-[10px] font-bold tracking-normal text-ink-soft">v11.4.3</span>
+            <span className="rounded border border-line bg-card px-1.5 py-0.5 text-[10px] font-bold tracking-normal text-ink-soft">v11.4.4</span>
           </h1>
           <p className="hidden text-xs text-ink-soft sm:block">
             award space · taxes · cash fares · cents per point
@@ -634,7 +668,7 @@ export default function App() {
             fxRates={fxRates}
             onChange={setFxRates}
           />
-          <CppReferencePanel library={cppLibrary} error={cppLibraryError} />
+          <CppReferencePanel library={cppLibrary} error={cppLibraryError} onApply={applyCppOverride} onReset={resetCppOverride} />
 
           <div hidden={activeTab !== "cash"}>
             <div className={activeTab === "cash" ? "rounded-b-md border border-deal bg-deal-soft/40 p-3" : ""}>
@@ -793,7 +827,7 @@ export default function App() {
       </main>
 
       <footer className="mx-auto max-w-[1440px] px-4 pb-6 text-[11px] text-ink-soft">
-        Award data © seats.aero. Live mode never creates a synthetic cash fare. CPP uses an exact cash itinerary when flight numbers match; otherwise it is labeled as a probable schedule match, same-airline benchmark, or route/cabin benchmark. When no live fare is available, cash fare, CPP, and cash-based savings remain unavailable. CPP = ((cash fare − taxes and fees) ÷ points) × 100. <span className="font-data font-semibold text-magenta">build v11.4.3 · responsive layout + live result filters + route-type organization + 20/25 result caps + 30-day FX + CPP reference library</span>
+        Award data © seats.aero. Live mode never creates a synthetic cash fare. CPP uses an exact cash itinerary when flight numbers match; otherwise it is labeled as a probable schedule match, same-airline benchmark, or route/cabin benchmark. When no live fare is available, cash fare, CPP, and cash-based savings remain unavailable. CPP = ((cash fare − taxes and fees) ÷ points) × 100. <span className="font-data font-semibold text-magenta">build v11.4.4 · aligned cash filters + booking links + airport-specific layovers + manual CPP overrides</span>
       </footer>
     </div>
   );

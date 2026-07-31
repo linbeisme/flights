@@ -38,8 +38,9 @@ function normalizeLeg(flight) {
   )];
   const flightNumbers = segments.map((segment) => normalizeFlightNumber(segment.flight_number)).filter(Boolean);
   const carrierCodes = [...new Set(flightNumbers.map((number) => number.slice(0, 2)))];
-  const layovers = (flight?.layovers || []).map((layover) => layover.duration).filter(Number.isFinite);
-  const connections = (flight?.layovers || []).map((layover) => layover.id).filter(Boolean);
+  const layoverRows = (flight?.layovers || []).filter((layover) => layover?.id);
+  const connections = layoverRows.map((layover) => layover.id);
+  const layovers = layoverRows.map((layover) => Number.isFinite(layover.duration) ? layover.duration : null);
   return {
     departTime: hhmm(segments[0]?.departure_airport?.time),
     arriveTime: hhmm(segments[segments.length - 1]?.arrival_airport?.time),
@@ -61,6 +62,7 @@ function rawFlights(data) {
 }
 
 function normalizeSerpFlights(data) {
+  const searchUrl = data?.search_metadata?.google_flights_url || data?.search_metadata?.google_url || null;
   return rawFlights(data)
     .filter((flight) => typeof flight.price === "number")
     .slice(0, 25)
@@ -68,6 +70,8 @@ function normalizeSerpFlights(data) {
       id: `cash-${index}-${flight.price}`,
       price: flight.price,
       currency: "USD",
+      bookingToken: flight.booking_token || null,
+      searchUrl,
       ...normalizeLeg(flight),
     }));
 }
@@ -130,6 +134,7 @@ async function fetchRoundTrip(key, origin, destination, outboundDate, returnDate
   const combinations = [];
   for (const item of followUps.filter(Boolean)) {
     const outbound = normalizeLeg(item.outboundChoice);
+    const searchUrl = item.data?.search_metadata?.google_flights_url || item.data?.search_metadata?.google_url || initial?.search_metadata?.google_flights_url || initial?.search_metadata?.google_url || null;
     for (const [returnIndex, returnChoice] of rawFlights(item.data).slice(0, 12).entries()) {
       const price = Number.isFinite(returnChoice?.price)
         ? returnChoice.price
@@ -143,6 +148,8 @@ async function fetchRoundTrip(key, origin, destination, outboundDate, returnDate
         price,
         currency: "USD",
         tripType: "roundtrip",
+        bookingToken: returnChoice.booking_token || item.outboundChoice.booking_token || null,
+        searchUrl,
         outbound,
         return: returning,
         outboundFlightNumbers: outbound.flightNumbers,
