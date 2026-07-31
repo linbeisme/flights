@@ -179,7 +179,7 @@ function ResultRow({ r, pax, searchedAt }) {
                   .map(airlineName)
                   .join(", ")}`}
               >
-                <span className="pb-flash-slow" aria-hidden="true">✈</span>{" "}
+                <span className="pb-flash-slow text-fresh" aria-hidden="true">✈</span>{" "}
                 {r.carriers.map(airlineName).join(" · ")}
               </span>
             )}

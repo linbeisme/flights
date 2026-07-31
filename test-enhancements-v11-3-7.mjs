@@ -35,8 +35,8 @@ for (const label of ["Get cash fares", "Clear fares", "Reset filters", "Saved se
 
 // One red airplane comes from the favicon only; the page title contains no airplane emoji.
 assert.match(favicon, /fill="#dc2626"/);
-assert.match(favicon, />✈<\/text>/);
+assert.match(favicon, /<path fill="#dc2626"/);
 assert.doesNotMatch(html, /✈|✈️/);
-assert.match(html, /PointsBoard v11\.4\.0/);
+assert.match(html, /PointsBoard v11\.4\.1/);
 
-console.log("✓ v11.4.0 retained-v11.3.7 regression checks passed: original controls retained, add-route moved, cash fares reused, and single red favicon configured");
+console.log("✓ v11.4.1 retained-v11.3.7 regression checks passed: original controls retained, add-route moved, cash fares reused, and single red favicon configured");

@@ -529,6 +529,10 @@ export const DEFAULT_FILTERS = {
   sort: "cpp",
 };
 
+// UI default requested in v11.4.1: start with Economy only while
+// retaining DEFAULT_FILTERS as the complete neutral filter contract.
+export const DEFAULT_UI_FILTERS = { ...DEFAULT_FILTERS, cabins: ["economy"] };
+
 export function applyFilters(results, f) {
   const parseCodes = (value) => String(value || "")
     .split(/[,\s]+/)

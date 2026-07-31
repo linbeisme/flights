@@ -71,7 +71,7 @@ function FlightInfoPopover({ r, searchedAt, compact = false, align = "left" }) {
         title="Show flight details"
         aria-label={`Show flight details for ${r.programLabel}`}
       >
-        ✈
+        <span className="text-fresh" aria-hidden="true">✈</span>
       </summary>
       <div className={`absolute z-30 mt-1 w-72 rounded border-2 border-ink bg-card p-3 text-left shadow-lg ${align === "right" ? "right-0" : "left-0"}`}>
         <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-magenta">Available flight details</p>

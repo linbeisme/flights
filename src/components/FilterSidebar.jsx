@@ -1,5 +1,5 @@
 import { PROGRAMS, CABINS } from "../data/defaults.js";
-import { DEFAULT_FILTERS } from "../api/flightApi.js";
+import { DEFAULT_UI_FILTERS } from "../api/flightApi.js";
 
 // ── FilterSidebar ───────────────────────────────────────────────────
 // Every control edits one key of the shared `filters` object; the
@@ -101,7 +101,7 @@ export default function FilterSidebar({ filters, onChange }) {
         </h2>
         <button
           type="button"
-          onClick={() => onChange({ ...DEFAULT_FILTERS })}
+          onClick={() => onChange({ ...DEFAULT_UI_FILTERS })}
           className="text-[11px] text-ink-soft underline decoration-dotted hover:text-magenta"
         >
           Clear all

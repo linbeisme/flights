@@ -83,7 +83,7 @@ r = await health({ ...req("https://x.dev/api/health"), env: { SEATS_AERO_API_KEY
 body = await r.json();
 assert.equal(r.status, 200);
 assert.equal(body.ok, true);
-assert.equal(body.version, "11.4.0");
+assert.equal(body.version, "11.4.1");
 assert.equal(body.liveAwardConfigured, true);
 assert.equal(body.liveCashConfigured, true);
 assert.doesNotMatch(JSON.stringify(body), /award-secret|cash-secret/);

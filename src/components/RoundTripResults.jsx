@@ -1,5 +1,6 @@
 import { formatDuration } from "../api/flightApi.js";
 import { BASE_CURRENCY, formatMoney } from "../api/currency.js";
+import { AIRLINE_NAMES, PROGRAMS } from "../data/defaults.js";
 
 function taxText(leg) {
   if (leg.taxesOriginal == null && leg.taxes == null) return "taxes unavailable";
@@ -10,7 +11,17 @@ function taxText(leg) {
   return original;
 }
 
+function programMeta(program) {
+  return PROGRAMS.find((item) => item.id === program) || { label: program || "Unknown program", color: "#4a586f" };
+}
+
+function operatingAirlines(carriers = []) {
+  const values = [...new Set(carriers.map((code) => AIRLINE_NAMES[String(code).toUpperCase()] || String(code).toUpperCase()).filter(Boolean))];
+  return values.length ? values.join(" · ") : "Operating airline not supplied";
+}
+
 function Leg({ label, leg }) {
+  const program = programMeta(leg.program);
   return (
     <div className="rounded border border-line bg-paper-deep p-2">
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -22,7 +33,8 @@ function Leg({ label, leg }) {
           {leg.flightNumbers && <p className="font-data text-[10px] text-ink-soft">{leg.flightNumbers}</p>}
         </div>
         <div className="text-right">
-          <p className="font-data text-sm font-bold">{leg.programLabel}</p>
+          <p className="font-data text-sm font-bold" style={{ color: program.color }}>{leg.programLabel || program.label}</p>
+          <p className="text-[10px] font-semibold text-ink-soft"><span className="text-fresh" aria-hidden="true">✈</span> Operated by {operatingAirlines(leg.carriers)}</p>
           <p className="font-data text-xs font-semibold">{Number(leg.points || 0).toLocaleString()} pts + {taxText(leg)}</p>
           <p className="text-[10px] text-ink-soft">{leg.seats == null ? "seat count not supplied" : `${leg.seats} seat${leg.seats === 1 ? "" : "s"}`}</p>
         </div>
@@ -43,6 +55,7 @@ function cashMatchLabel(value) {
 
 function CombinationCard({ combo, rank }) {
   const breakdown = Object.entries(combo.pointBreakdown || {});
+  const negativeSavings = Number.isFinite(combo.savingsVsCash) && combo.savingsVsCash < 0;
   return (
     <article className="rounded border-2 border-line bg-card p-3 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -63,9 +76,14 @@ function CombinationCard({ combo, rank }) {
         <div>
           <p className="text-[10px] uppercase tracking-wider text-ink-soft">Award total</p>
           {combo.sameProgram ? (
-            <p className="font-data text-sm font-bold text-deal">{combo.totalPoints.toLocaleString()} {combo.programLabel} pts</p>
+            <p className="font-data text-sm font-bold" style={{ color: programMeta(combo.program).color }}>{combo.totalPoints.toLocaleString()} {combo.programLabel} pts</p>
           ) : (
-            <div className="font-data text-xs font-bold text-deal">{breakdown.map(([program, points]) => <div key={program}>{points.toLocaleString()} {program}</div>)}</div>
+            <div className="font-data text-xs font-bold">
+              {breakdown.map(([program, points]) => {
+                const meta = programMeta(program);
+                return <div key={program} style={{ color: meta.color }}>{points.toLocaleString()} {meta.label}</div>;
+              })}
+            </div>
           )}
           <p className="font-data text-[10px] text-ink-soft">Taxes: {combo.taxesUsd == null ? "FX/tax data required" : formatMoney(combo.taxesUsd, BASE_CURRENCY)}</p>
         </div>
@@ -80,9 +98,14 @@ function CombinationCard({ combo, rank }) {
           {!combo.sameProgram && <p className="text-[10px] text-ink-soft">Different point currencies are kept separate.</p>}
         </div>
         <div>
-          <p className="text-[10px] uppercase tracking-wider text-ink-soft">Economic cost / savings</p>
+          <p className="text-[10px] uppercase tracking-wider text-ink-soft">Economic cost</p>
           <p className="font-data text-sm font-bold text-deal">{combo.economicCost == null ? "CPP/FX data required" : formatMoney(combo.economicCost, BASE_CURRENCY)}</p>
-          <p className={`font-data text-xs font-bold ${Number.isFinite(combo.savingsVsCash) && combo.savingsVsCash < 0 ? "text-fresh" : "text-favorable"}`}>{combo.savingsVsCash == null ? "Savings unavailable" : `${formatMoney(combo.savingsVsCash, BASE_CURRENCY)} vs cash`}</p>
+          <div className={`mt-2 rounded border px-2 py-1.5 ${negativeSavings ? "border-fresh bg-card" : "border-favorable/40 bg-paper"}`}>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-ink-soft">Savings vs. cash</p>
+            <p className={`font-data text-sm font-bold ${negativeSavings ? "pb-flash-medium text-fresh" : "text-favorable"}`}>
+              {combo.savingsVsCash == null ? "Unavailable" : formatMoney(combo.savingsVsCash, BASE_CURRENCY)}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -134,7 +157,7 @@ export default function RoundTripResults({ data, loading, error, searched, searc
       </div>
 
       <Group title="Same-program round trips" description="Both directions use the same loyalty currency. A combined round-trip CPP is shown when cash fare and taxes are available." rows={data.sameProgram || []} />
-      <Group title="Split-program round trips" description="Outbound and return use different programs. Points remain separated; economic cost is combined using each program’s reference valuation." rows={data.splitProgram || []} />
+      <Group title="Split-program round trips" description="Outbound and return use different programs. Each program name uses its filter-badge color; points remain separated and economic cost is combined using each program’s reference valuation." rows={data.splitProgram || []} />
     </section>
   );
 }

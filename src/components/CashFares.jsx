@@ -124,7 +124,7 @@ function CashRow({ f }) {
               className="mb-1 font-data text-base font-bold leading-tight text-ink"
               title={`Airline${f.carriers.length > 1 ? "s" : ""}: ${airlines}`}
             >
-              ✈ {airlines}
+              <span className="text-fresh" aria-hidden="true">✈</span> {airlines}
             </div>
           )}
           <span
@@ -221,7 +221,10 @@ export default function CashFares({ proxyBase, prefill, autoResults }) {
         ? ([0, 1, 3].includes(Number(prefill.flex)) ? Number(prefill.flex) : 0)
         : ([0, 1, 3, 7].includes(Number(prefill.flex)) ? Number(prefill.flex) : 0));
       if (nextTripType === "roundtrip") setCabins([prefill.cashCabin || "economy"]);
+      return;
     }
+    setTripType("oneway");
+    setReturnDate("");
   }, [prefill?.origin, prefill?.destination, prefill?.date, prefill?.returnDate, prefill?.tripType, prefill?.cashCabin, prefill?.flex]);
 
   // Reward searches already request live cash-fare lists for CPP calculations.
@@ -239,11 +242,20 @@ export default function CashFares({ proxyBase, prefill, autoResults }) {
     const nextCabins = requestedCabins.length ? requestedCabins : (availableCabins.length ? availableCabins : ["economy"]);
 
     const nextTripType = autoResults.tripType === "roundtrip" ? "roundtrip" : "oneway";
+    const savedOrigin = autoResults.origin || prefill?.origin || liveRows[0]?.origin || "";
+    const savedDestination = autoResults.destination || prefill?.destination || liveRows[0]?.destination || "";
+    const savedDate = autoResults.date || prefill?.date || liveRows[0]?.searchDate || "";
+    const savedReturnDate = nextTripType === "roundtrip" ? (autoResults.returnDate || prefill?.returnDate || liveRows[0]?.returnDate || "") : "";
+    const savedFlex = nextTripType === "roundtrip" ? Math.min(3, Number(autoResults.flex || prefill?.flex || 0)) : Number(autoResults.flex || prefill?.flex || 0);
+    const selectedCabins = nextTripType === "roundtrip" ? [nextCabins[0] || autoResults.cabin || "economy"] : nextCabins;
+    setOrigin(savedOrigin);
+    setDestination(savedDestination);
+    setDate(savedDate);
+    setReturnDate(savedReturnDate);
     setTripType(nextTripType);
-    if (nextTripType === "roundtrip") setReturnDate(autoResults.returnDate || prefill?.returnDate || "");
-    setDateFlex(nextTripType === "roundtrip" ? Math.min(3, Number(autoResults.flex || prefill?.flex || 0)) : Number(prefill?.flex || 0));
+    setDateFlex(savedFlex);
     setRows(liveRows);
-    setCabins(nextTripType === "roundtrip" ? [nextCabins[0] || autoResults.cabin || "economy"] : nextCabins);
+    setCabins(selectedCabins);
     setSearchedCabins(availableCabins);
     setCf(CASH_FILTERS);
     setSearchedAt(autoResults.searchedAt || Date.now());
@@ -251,6 +263,23 @@ export default function CashFares({ proxyBase, prefill, autoResults }) {
     setLoading(false);
     setError("");
     setNotice("");
+    if (!autoResults.restoreOnly && liveRows.length && savedOrigin && savedDestination && savedDate) {
+      const savedAt = autoResults.searchedAt || Date.now();
+      const savedEntry = {
+        id: `auto-${nextTripType}-${savedOrigin}-${savedDestination}-${savedDate}-${savedReturnDate || "oneway"}-${savedAt}`,
+        tripType: nextTripType,
+        origin: savedOrigin,
+        destination: savedDestination,
+        date: savedDate,
+        returnDate: savedReturnDate,
+        flex: savedFlex,
+        cabins: selectedCabins,
+        rows: liveRows,
+        searchedAt: savedAt,
+        source: "recommendations",
+      };
+      setHistory((current) => [savedEntry, ...current.filter((entry) => entry.id !== savedEntry.id)].slice(0, CASH_HISTORY_MAX));
+    }
   }, [autoResults]);
 
   useEffect(() => saveCashHistory(history), [history]);
@@ -448,7 +477,7 @@ export default function CashFares({ proxyBase, prefill, autoResults }) {
               value=""
               onChange={(e) => e.target.value && loadCashSearch(e.target.value)}
               className={FIELD_INPUT}
-              title="Reload one of your last 20 cash-fare searches"
+              title="Reload a saved cash-fare search, including round trips"
             >
               <option value="">Saved searches ({history.length})</option>
               {history.map((h) => (
@@ -521,7 +550,7 @@ export default function CashFares({ proxyBase, prefill, autoResults }) {
                           : "border-line bg-card text-ink hover:border-ink"
                       }`}
                     >
-                      ✈ {name}
+                      <span className="text-fresh" aria-hidden="true">✈</span> {name}
                     </button>
                   );
                 })}

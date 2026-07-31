@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import RouteManager, { MAX_SELECTED } from "./components/RouteManager.jsx";
 import FilterSidebar from "./components/FilterSidebar.jsx";
 import FlightResults from "./components/FlightResults.jsx";
@@ -12,7 +12,7 @@ import { DEMO_ROUTES, getDemoResultsForRoutes } from "./data/demoData.js";
 import { DEFAULT_RECOMMENDATION_PREFS, enrichResult } from "./api/recommendationEngine.js";
 import { EMPTY_CPP_LIBRARY, loadCppLibrary } from "./api/cppLibrary.js";
 import { assertLiveResults, isSafeLiveHistoryEntry, sanitizeLiveHistory } from "./api/modeIntegrity.js";
-import { searchAwardsWithCash, applyFilters, DEFAULT_FILTERS } from "./api/flightApi.js";
+import { searchAwardsWithCash, applyFilters, DEFAULT_UI_FILTERS } from "./api/flightApi.js";
 import { currenciesNeedingFx } from "./api/currency.js";
 import { dedupeExpandedResults, expandSelectedRoutes } from "./api/nearbyAirports.js";
 import { buildRoundTripCombinations, roundTripDatePairs, searchRoundTripAwardScenario, searchRoundTripCashFares } from "./api/roundTrip.js";
@@ -69,7 +69,7 @@ export default function App() {
   const [history, setHistory] = useState(loadSafeHistory);
   const [selectedIds, setSelectedIds] = useState([]);
   const [pax, setPax] = useState(1);
-  const [filters, setFilters] = useState({ ...DEFAULT_FILTERS });
+  const [filters, setFilters] = useState({ ...DEFAULT_UI_FILTERS });
   const [results, setResults] = useState([]);
   const [searchedAt, setSearchedAt] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -124,6 +124,31 @@ export default function App() {
   useEffect(() => {
     if (roundTripRoute && activeTab === "sameFlight") setActiveTab("rewards");
   }, [roundTripRoute, activeTab]);
+
+  // Round-trip reward comparisons must use the same single cabin as the
+  // true round-trip cash benchmark. Returning to one-way restores the
+  // requested default: Economy only, with additional cabins opt-in.
+  const priorRoundTripRef = useRef(false);
+  useEffect(() => {
+    if (roundTripRoute) {
+      const cabin = roundTripRoute.cashCabin || "economy";
+      setFilters((current) =>
+        current.cabins.length === 1 && current.cabins[0] === cabin
+          ? current
+          : { ...current, cabins: [cabin] }
+      );
+      priorRoundTripRef.current = true;
+      return;
+    }
+    if (priorRoundTripRef.current) {
+      setFilters((current) =>
+        current.cabins.length === 1 && current.cabins[0] === "economy"
+          ? current
+          : { ...current, cabins: ["economy"] }
+      );
+      priorRoundTripRef.current = false;
+    }
+  }, [roundTripRoute?.id, roundTripRoute?.cashCabin]);
 
   // Cash tab fields follow the first selected route. A reward search also
   // sends its already-fetched live fare lists to the Cash Fares tab so the
@@ -306,6 +331,9 @@ export default function App() {
           cabins: [cashCabin],
           cabin: cashCabin,
           routeCount: 1,
+          origin: roundTripRoute.origin,
+          destination: roundTripRoute.destination,
+          date: roundTripRoute.date,
           returnDate: roundTripRoute.returnDate,
           flex: roundTripRoute.flex || 0,
         });
@@ -357,6 +385,11 @@ export default function App() {
         searchedAt: ts,
         cabins: [...filters.cabins],
         routeCount: cashRoute ? 1 : 0,
+        origin: cashRoute?.origin || "",
+        destination: cashRoute?.destination || "",
+        date: cashRoute?.date || "",
+        returnDate: "",
+        flex: cashRoute?.flex || 0,
       });
 
       const label =
@@ -398,11 +431,38 @@ export default function App() {
     const entry = history.find((h) => h.id === id);
     if (!entry) return;
     if (settings.dataMode !== "live" || !isSafeLiveHistoryEntry(entry)) {
-      setError("Recent-search history can only restore verified live results while Live mode is active.");
+      setError("Saved-search history can only restore verified live results while Live mode is active.");
       return;
     }
+    const savedRoutes = Array.isArray(entry.routes) ? entry.routes.filter((route) => route?.id) : [];
+    if (savedRoutes.length) {
+      setRoutes((current) => {
+        const savedIds = new Set(savedRoutes.map((route) => route.id));
+        return [...savedRoutes, ...current.filter((route) => !savedIds.has(route.id))];
+      });
+      setSelectedIds(savedRoutes.map((route) => route.id).slice(0, entry.tripType === "roundtrip" ? 1 : MAX_SELECTED));
+    }
     setResults(entry.results);
-    setRoundTripData(entry.tripType === "roundtrip" ? entry.roundTripData || null : null);
+    const savedRoundTrip = entry.tripType === "roundtrip" ? entry.roundTripData || null : null;
+    setRoundTripData(savedRoundTrip);
+    if (savedRoundTrip?.cashRows?.length) {
+      const route = savedRoutes[0] || savedRoundTrip.route || {};
+      setCashAutoResults({
+        id: `saved-${entry.id}-${Date.now()}`,
+        tripType: "roundtrip",
+        rows: savedRoundTrip.cashRows,
+        searchedAt: entry.ts,
+        cabins: [route.cashCabin || "economy"],
+        cabin: route.cashCabin || "economy",
+        routeCount: 1,
+        origin: route.origin,
+        destination: route.destination,
+        date: route.date,
+        returnDate: route.returnDate,
+        flex: route.flex || 0,
+        restoreOnly: true,
+      });
+    }
     setSearchedAt(entry.ts);
     setPax(entry.pax || 1);
     setSearched(true);
@@ -417,7 +477,7 @@ export default function App() {
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-3">
           <h1 className="flex items-baseline gap-2 font-data text-lg font-bold tracking-[0.2em]">
             <span>POINTS<span className="text-magenta">BOARD</span></span>
-            <span className="rounded border border-line bg-card px-1.5 py-0.5 text-[10px] font-bold tracking-normal text-ink-soft">v11.4.0</span>
+            <span className="rounded border border-line bg-card px-1.5 py-0.5 text-[10px] font-bold tracking-normal text-ink-soft">v11.4.1</span>
           </h1>
           <p className="hidden text-xs text-ink-soft sm:block">
             award space · taxes · cash fares · cents per point
@@ -526,7 +586,11 @@ export default function App() {
                   onClick={() => !disabled && setActiveTab(id)}
                   className={`-mb-0.5 rounded-t border-2 border-b-0 px-4 py-2 font-data text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${
                     activeTab === id
-                      ? "border-ink bg-card text-ink"
+                      ? id === "rewards"
+                        ? "border-magenta bg-magenta/10 text-magenta-deep"
+                        : id === "sameFlight"
+                          ? "border-warn bg-warn/15 text-warn"
+                          : "border-deal bg-deal-soft text-deal"
                       : "border-transparent bg-paper-deep text-ink-soft hover:text-ink"
                   }`}
                 >
@@ -543,10 +607,13 @@ export default function App() {
           />
 
           <div hidden={activeTab !== "cash"}>
-            <CashFares proxyBase={settings.proxyBase} prefill={cashPrefill} autoResults={cashAutoResults} />
+            <div className={activeTab === "cash" ? "rounded-b-md border border-deal bg-deal-soft/40 p-3" : ""}>
+              <CashFares proxyBase={settings.proxyBase} prefill={cashPrefill} autoResults={cashAutoResults} />
+            </div>
           </div>
 
           <div hidden={!["rewards", "sameFlight"].includes(activeTab)}>
+            <div className={activeTab === "rewards" ? "rounded-b-md border border-magenta bg-magenta/5 p-3" : activeTab === "sameFlight" ? "rounded-b-md border border-warn bg-warn/5 p-3" : ""}>
           <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded border border-ink bg-paper-deep p-3">
             <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 font-data">
               {selectedRoutes.length > 0 ? (
@@ -598,10 +665,10 @@ export default function App() {
                 <select
                   value=""
                   onChange={(e) => e.target.value && loadHistory(e.target.value)}
-                  aria-label="Load one of the last 10 searches"
+                  aria-label="Load a saved recommendation search"
                   className="max-w-44 rounded border border-line bg-card px-1.5 py-1.5 text-xs"
                 >
-                  <option value="">Recent searches ({history.length})</option>
+                  <option value="">Saved searches ({history.length})</option>
                   {history.map((h) => (
                     <option key={h.id} value={h.id}>
                       {h.label}
@@ -691,11 +758,12 @@ export default function App() {
             <SameFlightView results={filtered} pax={pax} dataMode={settings.dataMode || "live"} />
           )}
           </div>
+          </div>
         </section>
       </main>
 
       <footer className="mx-auto max-w-6xl px-4 pb-6 text-[11px] text-ink-soft">
-        Award data © seats.aero. Live mode never creates a synthetic cash fare. CPP uses an exact cash itinerary when flight numbers match; otherwise it is labeled as a probable schedule match, same-airline benchmark, or route/cabin benchmark. When no live fare is available, cash fare, CPP, and cash-based savings remain unavailable. CPP = ((cash fare − taxes and fees) ÷ points) × 100. <span className="font-data font-semibold text-magenta">build v11.4.0 · round-trip award pairing + true round-trip cash fares + whole-trip date shifting</span>
+        Award data © seats.aero. Live mode never creates a synthetic cash fare. CPP uses an exact cash itinerary when flight numbers match; otherwise it is labeled as a probable schedule match, same-airline benchmark, or route/cabin benchmark. When no live fare is available, cash fare, CPP, and cash-based savings remain unavailable. CPP = ((cash fare − taxes and fees) ÷ points) × 100. <span className="font-data font-semibold text-magenta">build v11.4.1 · round-trip award pairing + true round-trip cash fares + whole-trip date shifting</span>
       </footer>
     </div>
   );
