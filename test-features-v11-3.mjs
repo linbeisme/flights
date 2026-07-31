@@ -17,7 +17,7 @@ import { AIRPORTS, PROGRAMS } from "./src/data/defaults.js";
 
 const cppRaw = JSON.parse(await readFile(new URL("./public/cpp-library.json", import.meta.url), "utf8"));
 const cpp = buildCppLibrary(cppRaw);
-const fx = { GBP: { rate: 1.29, asOf: "2026-07-24" }, EUR: { rate: 1.17 }, JPY: { rate: 0.0068 }, SGD: { rate: 0.78 } };
+const fx = { GBP: { rate: 1.29, asOf: "2026-07-24" }, EUR: { rate: 1.17, asOf: "2026-07-24" }, JPY: { rate: 0.0068, asOf: "2026-07-24" }, SGD: { rate: 0.78, asOf: "2026-07-24" } };
 const enriched = DEMO_RESULTS.map((row) => enrichResult(row, cpp, fx));
 
 // Exact same physical NH824 is available through United and Virgin Atlantic.

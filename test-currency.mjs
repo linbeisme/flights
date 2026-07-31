@@ -68,6 +68,13 @@ test("FX: manual rate converts into USD", () => {
   assert.equal(out.asOf, "2026-07-24");
 });
 
+
+test("FX: saved rate expires after 30 days", () => {
+  const out = convertToUsd(100, "GBP", { GBP: { rate: 1.25, asOf: "2026-06-01" } }, new Date("2026-07-15T12:00:00Z"));
+  assert.equal(out.usd, null);
+  assert.equal(out.status, "expired-rate");
+});
+
 test("Reward result: CPP and economic cost remain unavailable until FX is entered", () => {
   const raw = DEMO_RESULTS.find((r) => r.id === "LHR-VS-1");
   const blocked = enrichResult(raw, cppLibrary, {});
@@ -76,7 +83,7 @@ test("Reward result: CPP and economic cost remain unavailable until FX is entere
   assert.equal(blocked.cpp, null);
   assert.equal(blocked.economicCost, null);
 
-  const converted = enrichResult(raw, cppLibrary, { GBP: { rate: 1.29 } });
+  const converted = enrichResult(raw, cppLibrary, { GBP: { rate: 1.29, asOf: "2026-07-24" } });
   assert.equal(converted.taxesUsd, 1044.9);
   assert.ok(converted.cpp > 0);
   assert.ok(converted.economicCost > 0);
@@ -111,16 +118,16 @@ test("Cash provenance: same-airline benchmark outranks route-wide benchmark", ()
 
 test("Recommendations: required and avoided connections are enforced", () => {
   const rows = DEMO_RESULTS.filter((r) => r.origin === "LAX" && r.destination === "FCO");
-  const result = scoreResults(rows, { ...DEFAULT_RECOMMENDATION_PREFS, requiredAirports: "IST", preferredAirports: "", avoidAirports: "MUC" }, cppLibrary, { EUR: { rate: 1.1 } });
+  const result = scoreResults(rows, { ...DEFAULT_RECOMMENDATION_PREFS, requiredAirports: "IST", preferredAirports: "", avoidAirports: "MUC" }, cppLibrary, { EUR: { rate: 1.1, asOf: "2026-07-24" } });
   assert.equal(result.eligibleCount, 1);
   assert.equal(result.scored[0].id, "FCO-TK-1");
 });
 
-test("Recommendations: up to five non-featured alternatives are returned", () => {
+test("Recommendations: up to twenty non-featured alternatives are returned", () => {
   const rows = DEMO_RESULTS.filter((r) => r.origin === "LAX" && r.destination === "LHR");
-  const result = buildRecommendations(rows, DEFAULT_RECOMMENDATION_PREFS, cppLibrary, { GBP: { rate: 1.29 } });
+  const result = buildRecommendations(rows, DEFAULT_RECOMMENDATION_PREFS, cppLibrary, { GBP: { rate: 1.29, asOf: "2026-07-24" } });
   const featured = new Set(result.cards.map(([, r]) => r.id));
-  assert.ok(result.other.length <= 5);
+  assert.ok(result.other.length <= 20);
   assert.ok(result.other.every((r) => !featured.has(r.id)));
 });
 

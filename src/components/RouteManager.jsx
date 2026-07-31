@@ -7,6 +7,15 @@ const AIRPORT_OPTIONS = Object.entries(AIRPORTS)
   .sort((left, right) => left.code.localeCompare(right.code));
 
 export const MAX_SELECTED = 5;
+
+export function sortSavedRoutes(routes = []) {
+  return [...routes].sort((left, right) =>
+    String(left.origin || "").localeCompare(String(right.origin || "")) ||
+    String(left.destination || "").localeCompare(String(right.destination || "")) ||
+    String(left.tripType || "oneway").localeCompare(String(right.tripType || "oneway")) ||
+    String(left.date || "").localeCompare(String(right.date || ""))
+  );
+}
 const ROUND_TRIP_FLEX_OPTIONS = FLEX_OPTIONS.filter((option) => Number(option.value) <= 3);
 
 function NearbyControls({ route, onNearbyChange }) {
@@ -100,8 +109,12 @@ export default function RouteManager({ routes, selectedIds, onToggleSelect, onUp
   const [newNearbyRadius, setNewNearbyRadius] = useState(50);
   const [error, setError] = useState("");
   const [showSavedRoutes, setShowSavedRoutes] = useState(true);
+  const [routeTypeFilter, setRouteTypeFilter] = useState("all");
   const atLimit = selectedIds.length >= MAX_SELECTED;
   const roundTripSelected = routes.some((route) => selectedIds.includes(route.id) && route.tripType === "roundtrip");
+  const visibleRoutes = routes.filter((route) => routeTypeFilter === "all" || (route.tripType || "oneway") === routeTypeFilter);
+  const oneWayCount = routes.filter((route) => (route.tripType || "oneway") === "oneway").length;
+  const roundTripCount = routes.filter((route) => route.tripType === "roundtrip").length;
 
   useEffect(() => {
     if (newTripType === "roundtrip" && newFlex > 3) setNewFlex(3);
@@ -186,13 +199,30 @@ export default function RouteManager({ routes, selectedIds, onToggleSelect, onUp
         </div>
       </div>
       <p className="mb-2 text-[11px] text-ink-soft">Check up to {MAX_SELECTED} one-way routes. A selected round trip is searched by itself so its outbound and return legs stay paired.</p>
+      <div className="mb-2 grid grid-cols-3 gap-1 rounded border border-line bg-paper-deep p-1" role="group" aria-label="Filter saved routes by trip type">
+        {[
+          ["all", `All (${routes.length})`],
+          ["oneway", `One way (${oneWayCount})`],
+          ["roundtrip", `Round trip (${roundTripCount})`],
+        ].map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setRouteTypeFilter(id)}
+            aria-pressed={routeTypeFilter === id}
+            className={`rounded px-1.5 py-1 text-[10px] font-semibold ${routeTypeFilter === id ? "bg-ink text-paper" : "bg-card text-ink-soft hover:text-ink"}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       {roundTripSelected && <p className="mb-2 rounded border border-magenta bg-magenta/5 px-2 py-1 text-[10px] text-magenta">Round-trip selection is exclusive. Selecting a one-way route will switch back to the normal multi-route workflow.</p>}
       {showSavedRoutes ? (
         <ul id="saved-routes-list" className="flex max-h-[48vh] flex-col gap-1.5 overflow-y-auto pr-1 lg:max-h-[50vh]">
-          {routes.map((route) => (
+          {visibleRoutes.map((route) => (
             <RouteStrip key={route.id} route={route} selected={selectedIds.includes(route.id)} atLimit={atLimit} onToggle={() => onToggleSelect(route.id)} onRouteChange={(patch) => onUpdateRoute(route.id, patch)} onNearbyChange={(patch) => onUpdateNearby(route.id, patch)} onReverse={() => onReverse(route.id)} onDelete={() => onDelete(route.id)} />
           ))}
-          {routes.length === 0 && <li className="rounded border border-dashed border-line p-3 text-xs text-ink-soft">No saved routes yet — add your first one above or restore the preset routes.</li>}
+          {visibleRoutes.length === 0 && <li className="rounded border border-dashed border-line p-3 text-xs text-ink-soft">No saved routes match this trip-type filter.</li>}
         </ul>
       ) : (
         <p id="saved-routes-list" className="rounded border border-dashed border-line bg-paper-deep px-2 py-2 text-[11px] text-ink-soft">{routes.length} saved route{routes.length === 1 ? "" : "s"} hidden · {selectedIds.length} selected for search.</p>

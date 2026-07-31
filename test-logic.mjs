@@ -209,7 +209,7 @@ test("Cabin colors: four distinct colors defined", () => {
   colors.forEach((c) => assert.match(c, /^#[0-9a-f]{6}$/i));
 });
 
-test("Airport catalog: 400+ airports incl. ONT/SNA/LGB/BUR/PEK, all valid", () => {
+test("Airport catalog: 1,000 airports incl. ONT/SNA/LGB/BUR/PEK, all valid", () => {
   const entries = Object.entries(AIRPORTS);
   assert.ok(entries.length >= 400, `only ${entries.length}`);
   for (const code of ["ONT", "SNA", "LGB", "BUR", "PEK"]) assert.ok(AIRPORTS[code], code);

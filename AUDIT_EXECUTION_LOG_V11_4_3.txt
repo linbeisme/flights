@@ -1,0 +1,152 @@
+
+> reward-flights@11.4.3 test
+> node test-logic.mjs && node test-functions.mjs && node test-simulation.mjs && node test-recommendation.mjs && node test-currency.mjs && node test-features-v11-3.mjs && node test-ui-retention-v11-3-1.mjs && node test-enhancements-v11-3-2.mjs && node test-enhancements-v11-3-3.mjs && node test-enhancements-v11-3-4.mjs && node test-enhancements-v11-3-5.mjs && node test-enhancements-v11-3-7.mjs && node test-roundtrip-v11-4.mjs && node test-enhancements-v11-4-1.mjs && node test-enhancements-v11-4-3.mjs && node test-deployment.mjs
+
+✓ CPP exact formula: ((cash − taxes) / points) × 100
+✓ Default routes: 10 from TPE + 12 from LAX, all future, flex 0
+✓ Fixture rows carry internally consistent CPP
+✓ Filter: cabin selection
+✓ Filter: program selection
+✓ Filter: departure & arrival time windows
+✓ Filter: overnight departure window crosses midnight
+✓ Filter: cumulative stops (Direct / ≤1 incl. direct / ≤2+ incl. all)
+✓ Filter: connection airport codes
+✓ Filter: layover min/max hours
+✓ Filter: total travel time min/max hours
+✓ Filter: passenger count hides too-few-seat rows, keeps unknown
+✓ Sorting: lowest fees/taxes first
+✓ Route selection limit raised to 5
+✓ Sorting: CPP desc / points asc / duration asc / stops / layover
+✓ addDays: UTC-safe across month/year/leap edges
+✓ Program colors: nine distinct badge colors
+✓ parseCarriers: splits, trims, uppercases, dedupes, validates
+✓ Airline names resolve for the alliance carriers we expect
+✓ Redeem links: every program has a valid https URL
+✓ Cash source values are limited to live or unavailable outside Demo mode
+✓ Dropdown type-to-jump: cycles through codes sharing a first letter
+✓ Cabin colors: four distinct colors defined
+✓ Airport catalog: 1,000 airports incl. ONT/SNA/LGB/BUR/PEK, all valid
+✓ Manual airport entry: normalizeAirportInput accepts typed values
+✓ Cash filters: airlines multi-select
+✓ Cash filters: cumulative stops incl. direct
+✓ Cash filters: connection airport codes
+✓ Cash filters: total travel time bounds (hours)
+✓ Cash filters: layover duration bounds (hours)
+✓ Cash filters: departure & arrival windows exclude schedule-less rows only when narrowed
+✓ Demo-data guard: flags rows marked demo, never live rows
+✓ Saved searches: reward history cap is 20, cash history cap is 20
+✓ Program mapping covers all nine required programs
+✓ Cash fare matcher: exact flight numbers outrank route/cabin benchmark
+✓ Cash fare matcher: unmatched live list falls back to median benchmark
+
+All 36 core logic test groups passed.
+✓ search: same-origin CORS preflight is restricted
+✓ search: cross-origin access requires ALLOWED_ORIGINS
+✓ search: missing seats.aero key is reported
+✓ search: airports, real dates, range, take, trip id, and method validated
+✓ cashfare: missing SerpApi key returns unavailable, never a synthetic fare
+✓ cashfare: route, real date, and cabin validated
+✓ cashfare: live median calculation is correct
+✓ health: configuration status is safe and useful
+✓ worker: API and static-asset routes are correctly dispatched
+
+All function and Worker tests passed.
+✓ Reward search: existing award results and cash-fare lists are returned in one bundle
+✓ Simulation: date window ±1 forwarded to seats.aero as start/end
+✓ Simulation: 3 trip-level itineraries normalized; excluded program dropped
+✓ Simulation: operating carriers parsed from trip data
+✓ Simulation: exact live cash matches and unavailable fares stay distinct
+✓ Simulation: connections, layovers, times, seats, taxes normalized
+✓ Simulation: CPP computed with the exact formula on live numbers
+✓ Simulation: cumulative stops filter — '1' includes direct, '2+' includes all
+✓ Simulation: all six sort orders hold on live-shaped data
+✓ Simulation: passenger seat filter works on live seat counts
+✓ Cash tab: rows sorted by price across cabins, cheapest first
+✓ Cash tab: only live rows are returned; unavailable cabins add no synthetic row
+✓ Cash tab: schedule fields, connections, and departMin normalized
+✓ Cash tab: network failure returns no synthetic cash rows
+✓ Cash tab v9: arrival minutes and layover durations normalized
+✓ Cash tab v9: full filter suite works on live-shaped rows
+✓ Data-integrity guard: live pipelines never trip the red flag
+
+Simulation complete: all 17 scenario groups passed against the real live pipeline.
+{
+  "routes": 7,
+  "rows": 20,
+  "cppPrograms": 9,
+  "recommendationCards": [
+    [
+      "Best overall",
+      "LHR-UA-1"
+    ],
+    [
+      "Lowest economic cost",
+      "LHR-UA-1"
+    ],
+    [
+      "Best realized CPP",
+      "LHR-AC-1"
+    ],
+    [
+      "Fastest acceptable",
+      "LHR-UA-1"
+    ],
+    [
+      "Best nonstop",
+      "LHR-UA-1"
+    ]
+  ],
+  "isolatedTop": "LHR-UA-1",
+  "validationErrors": [
+    "Minimum layover cannot exceed maximum layover."
+  ]
+}
+✓ Currency: ISO normalization and safe formatting
+✓ Taxes: unavailable source data stays unknown instead of becoming zero
+✓ Seats: known unreliable zero counts are shown as unknown
+✓ Currency: provider field detected; legacy omission is explicitly marked
+✓ FX: non-USD fee is blocked without manual rate
+✓ FX: manual rate converts into USD
+✓ FX: saved rate expires after 30 days
+✓ Reward result: CPP and economic cost remain unavailable until FX is entered
+✓ Reward filters: include and exclude connection-airport rules
+✓ Cash provenance: same-airline benchmark outranks route-wide benchmark
+✓ Recommendations: required and avoided connections are enforced
+✓ Recommendations: up to twenty non-featured alternatives are returned
+✓ Demo coverage: foreign currencies, carriers, seats, and timestamps are present
+
+All 12 currency, provenance, and expanded recommendation test groups passed.
+✓ v11.3 same-flight grouping uses exact flight sequence and shows cash plus economic cost
+✓ v11.3 missing flight numbers are not falsely merged into exact groups
+✓ v11.3 redemption handoff provides official links and prefilled/copyable trip details
+✓ v11.3 nearby-airport expansion is curated, bounded, deduplicated, and includes the base route
+
+All v11.3 feature checks passed.
+✓ v11.3.1 full original filters, saved routes, recommendations, and new views are retained in the actual React source
+✓ v11.3.2 recommendation presentation, FX visibility, alternatives, and deployment configuration checks passed
+✓ v11.3.3/v11.3.4 cash-cabin persistence, same-flight CPP placement, filter labels, right-aligned flight details, negative-savings alert, and calculation help checks passed
+✓ v11.3.4 persistent multi-cabin fares, recommendation layout, positive savings color, fastest-info help, alternative CPP, carrier styling, and JX mapping checks passed
+✓ retained v11.3.5 features with v11.4.3 version badge, click-away popovers, blue controls, automatic FX reveal, saved-route toggle, program hover labels, and flexible cash-date checks passed
+✓ v11.4.3 retained-v11.3.7 regression checks passed: original controls retained, add-route moved, cash fares reused, and uploaded red-airplane favicon configured
+PASS whole-trip ±3 shifts both dates together and preserves trip length
+PASS round-trip flexibility rejects unsupported ±7 expansion
+PASS legacy one-way ±7 behavior is unchanged
+PASS same-program combination calculates combined points, CPP, economic cost, seats, and disclosure
+PASS split-program combination keeps point currencies separate while exposing leg CPP and derived blended CPP
+PASS seat requirement applies to both directions
+PASS Worker validates exact round-trip dates before provider calls
+PASS Worker uses true SerpApi round-trip flow with departure-token return lookup
+PASS one-way Worker request remains type=2
+PASS UI source retains explicit constraints and separate-reservation disclosure
+
+10 round-trip v11.4.0 tests passed.
+✓ v11.4.3 UI synchronization, 1,000-airport catalog, round-trip savings, uploaded-airplane favicon, dynamic program re-filtering, split-program CPP, and multi-cabin cash-fare checks passed
+✓ v11.4.3 live filters, aligned layout, operating-airline labels, saved-route sorting/filtering, result caps, FX expiry, and CPP reference checks passed
+✓ deployment: package metadata and scripts are consistent
+✓ deployment: Wrangler Worker and SPA asset configuration is complete
+✓ deployment: GitHub Actions performs clean install, tests, build, and dry run
+✓ deployment: secrets are externalized and generated folders are ignored
+✓ deployment: security headers and health endpoint are present
+✓ deployment: Live mode has no active synthetic cash-fare fallback
+
+All deployment-readiness checks passed.

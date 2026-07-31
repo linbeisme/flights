@@ -303,7 +303,7 @@ export function buildRoundTripCombinations({ outboundRows = [], returnRows = [],
   };
 
   return {
-    sameProgram: sameProgram.sort(sortCombos).slice(0, 30),
-    splitProgram: splitProgram.sort(sortCombos).slice(0, 30),
+    sameProgram: sameProgram.sort(sortCombos).slice(0, 20),
+    splitProgram: splitProgram.sort(sortCombos).slice(0, 20),
   };
 }

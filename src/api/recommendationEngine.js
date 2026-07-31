@@ -237,7 +237,7 @@ export function buildRecommendations(results, prefs, cppLibrary = EMPTY_CPP_LIBR
     ["Best nonstop", nonstop],
   ].filter(([, r]) => r);
   const featuredIds = new Set(cards.map(([, r]) => r.id));
-  const other = scored.filter((r) => !featuredIds.has(r.id)).slice(0, 5);
+  const other = scored.filter((r) => !featuredIds.has(r.id)).slice(0, 20);
   const notRecommended = (excluded || []).slice(0, 5);
   return { scored, cards, other, notRecommended, validation, usedFallback, eligibleCount };
 }

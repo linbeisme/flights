@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BASE_CURRENCY, normalizeFxEntry } from "../api/currency.js";
+import { BASE_CURRENCY, FX_VALID_DAYS, fxEntryStatus, normalizeFxEntry } from "../api/currency.js";
+
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
 
 export default function FxPanel({ currencies, fxRates, onChange }) {
   const [open, setOpen] = useState(false);
   const previousSignature = useRef("");
   const signature = useMemo(() => [...currencies].sort().join(","), [currencies]);
 
-  // Default is collapsed. Newly detected foreign-currency award fees open the
-  // panel automatically so the required USD conversion can be entered.
   useEffect(() => {
     if (signature && signature !== previousSignature.current) setOpen(true);
     if (!signature) setOpen(false);
@@ -18,9 +20,13 @@ export default function FxPanel({ currencies, fxRates, onChange }) {
 
   const update = (currency, patch) => {
     const current = fxRates[currency] || {};
+    const nextPatch = { ...patch };
+    if (Object.prototype.hasOwnProperty.call(patch, "rate") && patch.rate !== "" && !current.asOf) {
+      nextPatch.asOf = todayIso();
+    }
     onChange({
       ...fxRates,
-      [currency]: { ...current, ...patch, source: "manual" },
+      [currency]: { ...current, ...nextPatch, source: "manual" },
     });
   };
 
@@ -31,21 +37,22 @@ export default function FxPanel({ currencies, fxRates, onChange }) {
   };
 
   const configured = currencies.filter((currency) => Boolean(normalizeFxEntry(fxRates[currency]))).length;
+  const expired = currencies.filter((currency) => fxEntryStatus(fxRates[currency]).reason === "expired").length;
 
   return (
     <section className="mb-3 rounded border-2 border-warn bg-warn/10 p-3" aria-labelledby="fx-heading">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
           <h2 id="fx-heading" className="text-xs font-bold uppercase tracking-[0.15em] text-heading">
             FX conversion for award taxes and fees
           </h2>
           <p className="mt-1 text-xs text-ink-soft">
-            This shared panel applies to Recommendations + Results, Exact Same Flight, and Cash Fares. Enter how many U.S. dollars equal 1 unit of each foreign currency.
+            This shared panel applies to Recommendations + Results, Exact Same Flight, and Cash Fares. Manual rates remain valid for {FX_VALID_DAYS} days from the rate date; after that, CPP and economic-cost calculations pause until you refresh the rate manually.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <span className="rounded border border-warn bg-card px-2 py-1 font-data text-[10px] font-bold text-warn">
-            {configured}/{currencies.length} rate{currencies.length === 1 ? "" : "s"} active · base {BASE_CURRENCY}
+            {configured}/{currencies.length} active · {expired} expired · base {BASE_CURRENCY}
           </span>
           <button
             type="button"
@@ -62,14 +69,15 @@ export default function FxPanel({ currencies, fxRates, onChange }) {
       {open && (
         <div id="fx-rate-controls">
           <p className="mt-2 text-[11px] text-ink-soft">
-            Until a valid rate is entered, USD taxes, CPP, economic cost, and recommendation ranking remain unavailable for that foreign-currency result.
+            Enter how many U.S. dollars equal 1 unit of the foreign currency. Changing the rate automatically dates it today unless you enter another rate date.
           </p>
-          <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+          <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {currencies.map((currency) => {
               const entry = fxRates[currency] || {};
+              const status = fxEntryStatus(entry);
               const valid = Boolean(normalizeFxEntry(entry));
               return (
-                <div key={currency} className="rounded border border-line bg-card p-2">
+                <div key={currency} className={`rounded border bg-card p-3 ${status.reason === "expired" ? "border-magenta" : "border-line"}`}>
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-data text-sm font-bold">1 {currency} =</span>
                     <button type="button" onClick={() => clear(currency)} className="text-[10px] text-ink-soft underline decoration-dotted hover:text-magenta">
@@ -82,7 +90,7 @@ export default function FxPanel({ currencies, fxRates, onChange }) {
                       min="0.000001"
                       step="0.000001"
                       value={entry.rate ?? ""}
-                      onChange={(e) => update(currency, { rate: e.target.value })}
+                      onChange={(event) => update(currency, { rate: event.target.value })}
                       aria-label={`USD per ${currency}`}
                       placeholder="USD rate"
                       className="min-w-0 flex-1 rounded border border-line bg-paper px-2 py-1.5 font-data text-sm"
@@ -94,12 +102,18 @@ export default function FxPanel({ currencies, fxRates, onChange }) {
                     <input
                       type="date"
                       value={entry.asOf || ""}
-                      onChange={(e) => update(currency, { asOf: e.target.value })}
+                      onChange={(event) => update(currency, { asOf: event.target.value })}
                       className="mt-1 block w-full rounded border border-line bg-paper px-2 py-1 text-xs"
                     />
                   </label>
-                  <p className={`mt-1 text-[10px] font-semibold ${valid ? "text-deal" : "text-warn"}`}>
-                    {valid ? "Manual rate active" : "Rate required"}
+                  <p className={`mt-2 text-[10px] font-semibold ${valid ? "text-deal" : "text-magenta"}`}>
+                    {valid
+                      ? `Manual rate active · ${status.daysRemaining} day${status.daysRemaining === 1 ? "" : "s"} remaining`
+                      : status.reason === "expired"
+                        ? `Expired after ${FX_VALID_DAYS} days · enter or confirm a refreshed rate`
+                        : status.reason === "missing-date"
+                          ? "Rate date required"
+                          : "Rate required"}
                   </p>
                 </div>
               );

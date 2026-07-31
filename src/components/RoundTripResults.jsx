@@ -1,4 +1,4 @@
-import { formatDuration } from "../api/flightApi.js";
+import { applyFilters, formatDuration } from "../api/flightApi.js";
 import { BASE_CURRENCY, formatMoney } from "../api/currency.js";
 import { AIRLINE_NAMES, PROGRAMS } from "../data/defaults.js";
 
@@ -53,14 +53,17 @@ function cashMatchLabel(value) {
   })[value] || value || "Round-trip cash fare unavailable";
 }
 
-function filterCombinationsByPrograms(rows, selectedPrograms = []) {
+function filterCombinations(rows, filters = {}, selectedPrograms = []) {
   const enabled = new Set(Array.isArray(selectedPrograms) ? selectedPrograms : []);
   if (enabled.size === 0) return [];
-  return (rows || []).filter((combo) =>
-    combo.sameProgram
+  return (rows || []).filter((combo) => {
+    const programsPass = combo.sameProgram
       ? enabled.has(combo.program)
-      : enabled.has(combo.outbound?.program) && enabled.has(combo.return?.program)
-  );
+      : enabled.has(combo.outbound?.program) && enabled.has(combo.return?.program);
+    if (!programsPass) return false;
+    if (!filters || !Array.isArray(filters.programs)) return true;
+    return applyFilters([combo.outbound], filters).length > 0 && applyFilters([combo.return], filters).length > 0;
+  });
 }
 
 function splitMethodLabel(method) {
@@ -164,10 +167,10 @@ function Group({ title, description, rows }) {
           <h2 className="font-data text-sm font-bold uppercase tracking-[0.12em] text-heading">{title}</h2>
           <p className="text-[11px] text-ink-soft">{description}</p>
         </div>
-        <span className="font-data text-[11px] text-ink-soft">{rows.length} ranked option{rows.length === 1 ? "" : "s"}</span>
+        <span className="font-data text-[11px] text-ink-soft">{Math.min(rows.length, 20)} shown of {rows.length} ranked option{rows.length === 1 ? "" : "s"}</span>
       </div>
       {rows.length ? (
-        <div className="space-y-3">{rows.slice(0, 10).map((combo, index) => <CombinationCard key={combo.id} combo={combo} rank={index + 1} />)}</div>
+        <div className="space-y-3">{rows.slice(0, 20).map((combo, index) => <CombinationCard key={combo.id} combo={combo} rank={index + 1} />)}</div>
       ) : (
         <div className="rounded border border-dashed border-line p-4 text-center text-xs text-ink-soft">No combinations in this category passed the current award filters and seat requirement.</div>
       )}
@@ -175,15 +178,15 @@ function Group({ title, description, rows }) {
   );
 }
 
-export default function RoundTripResults({ data, loading, error, searched, searchedAt, selectedPrograms = [] }) {
+export default function RoundTripResults({ data, loading, error, searched, searchedAt, selectedPrograms = [], filters = null }) {
   if (loading) return <div className="space-y-2">{[0, 1, 2].map((index) => <div key={index} className="h-44 animate-pulse rounded border border-line bg-paper-deep" />)}</div>;
   if (error) return <div role="alert" className="rounded border border-magenta bg-magenta/10 p-3 text-sm text-magenta">{error}</div>;
   if (!searched) return <div className="rounded border border-dashed border-line p-6 text-center text-sm text-ink-soft">Select one saved round-trip route and search award space.</div>;
   if (!data) return <div className="rounded border border-dashed border-line p-6 text-center text-sm text-ink-soft">No complete round-trip award combinations were returned.</div>;
 
   const cashDates = new Set((data.cashRows || []).map((row) => row.datePairKey)).size;
-  const sameProgramRows = filterCombinationsByPrograms(data.sameProgram || [], selectedPrograms);
-  const splitProgramRows = filterCombinationsByPrograms(data.splitProgram || [], selectedPrograms);
+  const sameProgramRows = filterCombinations(data.sameProgram || [], filters, selectedPrograms);
+  const splitProgramRows = filterCombinations(data.splitProgram || [], filters, selectedPrograms);
   return (
     <section aria-label="Round-trip award combinations">
       <div className="rounded border-2 border-magenta bg-magenta/5 p-3">
@@ -191,11 +194,11 @@ export default function RoundTripResults({ data, loading, error, searched, searc
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-magenta">Round-trip comparison</p>
             <h2 className="font-data text-lg font-bold">{data.route.origin} ⇄ {data.route.destination}</h2>
-            <p className="text-xs text-ink-soft">Exact dates {data.route.date} to {data.route.returnDate}{data.route.flex ? ` · whole-trip shift ±${data.route.flex} days` : ""} · one cash cabin: {data.route.cashCabin || "economy"}</p>
+            <p className="text-xs text-ink-soft">Exact dates {data.route.date} to {data.route.returnDate}{data.route.flex ? ` · whole-trip shift ±${data.route.flex} days` : ""} · cash benchmark cabin: {data.route.cashCabin || "economy"}</p>
           </div>
           {searchedAt && <span className="font-data text-[10px] text-ink-soft">Fetched {new Date(searchedAt).toLocaleString()}</span>}
         </div>
-        <p className="mt-2 text-[11px] text-ink-soft">Award results are paired from directional outbound and return availability. Cash results are requested as true round-trip itineraries for one traveler so CPP and economic-cost comparisons remain per traveler. The passenger field is used to require enough award seats on both legs. {cashDates} shifted date pair{cashDates === 1 ? "" : "s"} returned live cash data.</p>
+        <p className="mt-2 text-[11px] text-ink-soft">Award results are paired from directional outbound and return availability. Programs, cabin, stops, time windows, layover duration, total travel time, and passenger filters remain live before and after Search. Cash results are requested as true round-trip itineraries for one traveler. {cashDates} shifted date pair{cashDates === 1 ? "" : "s"} returned live cash data.</p>
       </div>
 
       <Group title="Same-program round trips" description="Both directions use the same loyalty currency. A combined round-trip CPP is shown when cash fare and taxes are available." rows={sameProgramRows} />

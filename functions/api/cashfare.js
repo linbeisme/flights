@@ -30,6 +30,12 @@ function toMinute(value) {
 function normalizeLeg(flight) {
   const segments = flight?.flights || [];
   const carriers = [...new Set(segments.map((segment) => segment.airline).filter(Boolean))];
+  const operatingCarriers = [...new Set(
+    segments
+      .map((segment) => segment.operating_airline || segment.operated_by || null)
+      .filter(Boolean)
+      .filter((name) => !carriers.includes(name))
+  )];
   const flightNumbers = segments.map((segment) => normalizeFlightNumber(segment.flight_number)).filter(Boolean);
   const carrierCodes = [...new Set(flightNumbers.map((number) => number.slice(0, 2)))];
   const layovers = (flight?.layovers || []).map((layover) => layover.duration).filter(Number.isFinite);
@@ -42,6 +48,7 @@ function normalizeLeg(flight) {
     totalMinutes: flight?.total_duration ?? null,
     stops: Math.max(0, segments.length - 1),
     carriers,
+    operatingCarriers,
     carrierCodes,
     flightNumbers,
     connections,
@@ -141,6 +148,7 @@ async function fetchRoundTrip(key, origin, destination, outboundDate, returnDate
         outboundFlightNumbers: outbound.flightNumbers,
         returnFlightNumbers: returning.flightNumbers,
         carriers: [...new Set([...outbound.carriers, ...returning.carriers])],
+        operatingCarriers: [...new Set([...(outbound.operatingCarriers || []), ...(returning.operatingCarriers || [])])],
         carrierCodes: [...new Set([...outbound.carrierCodes, ...returning.carrierCodes])],
         flightNumbers: [...outbound.flightNumbers, ...returning.flightNumbers],
         departTime: outbound.departTime,
@@ -160,7 +168,7 @@ async function fetchRoundTrip(key, origin, destination, outboundDate, returnDate
   }
 
   return {
-    flights: combinations.sort((left, right) => left.price - right.price).slice(0, 30),
+    flights: combinations.sort((left, right) => left.price - right.price).slice(0, 20),
     providerRequests: 1 + outboundChoices.length,
   };
 }

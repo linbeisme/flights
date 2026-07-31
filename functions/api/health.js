@@ -9,7 +9,7 @@ export async function onRequest({ request, env }) {
   return jsonResponse({
     ok: true,
     app: "PointsBoard",
-    version: "11.4.2",
+    version: "11.4.3",
     liveAwardConfigured: Boolean(env.SEATS_AERO_API_KEY),
     liveCashConfigured: Boolean(env.SERPAPI_KEY),
     checkedAt: new Date().toISOString(),

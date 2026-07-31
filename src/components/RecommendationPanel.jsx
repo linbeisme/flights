@@ -416,7 +416,7 @@ export default function RecommendationPanel({ results, prefs, onPrefsChange, dat
               {(rec.other.length > 0 || rec.notRecommended?.length > 0) && (
                 <section className="mt-3 rounded border-2 border-line bg-paper p-3" aria-label="Other qualifying redemptions or not recommended flights">
                   <h4 className="text-xs font-bold uppercase tracking-[0.12em] text-heading">Other qualifying redemptions or not recommended flights</h4>
-                  <p className="mt-1 text-[11px] text-ink-soft">Qualified alternatives passed the recommendation settings but did not win a featured category. Not-recommended rows failed one or more recommendation preferences and show the reason.</p>
+                  <p className="mt-1 text-[11px] text-ink-soft">Up to 25 recommended redemptions per route are shown: five featured choices plus as many as 20 other qualified alternatives. Qualified alternatives passed the recommendation settings but did not win a featured category. Not-recommended rows failed one or more recommendation preferences and show the reason.</p>
 
                   {rec.other.length > 0 && (
                     <details open className="mt-3 rounded border border-line bg-card p-2">

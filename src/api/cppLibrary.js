@@ -1,5 +1,6 @@
 export const EMPTY_CPP_LIBRARY = Object.freeze({
   map: Object.freeze({}),
+  rows: Object.freeze([]),
   meta: Object.freeze({ source: "Unavailable", asOf: null, updatedAt: null, sourceUrl: null }),
 });
 
@@ -8,25 +9,30 @@ export function buildCppLibrary(data) {
     throw new Error("CPP library is missing cppLibrary[]");
   }
   const map = {};
-  for (const row of data.cppLibrary) {
-    if (!row?.programId) continue;
+  const rows = data.cppLibrary.map((row) => {
     const cpp = Number(row.cpp);
     if (!Number.isFinite(cpp) || cpp <= 0) {
-      throw new Error(`Invalid CPP for ${row.programId}`);
+      throw new Error(`Invalid CPP for ${row.program || row.programId || "unknown program"}`);
     }
-    if (map[row.programId]) {
-      throw new Error(`Duplicate CPP programId: ${row.programId}`);
-    }
-    map[row.programId] = {
-      programId: row.programId,
-      program: row.program,
+    const normalized = {
+      programId: row.programId || null,
+      program: row.program || row.programId || "Unknown program",
+      type: row.type || "Other",
       cpp,
       source: row.source || data.source || "Unknown",
       asOf: row.asOf || data.asOf || null,
     };
-  }
+    if (normalized.programId) {
+      if (map[normalized.programId]) {
+        throw new Error(`Duplicate CPP programId: ${normalized.programId}`);
+      }
+      map[normalized.programId] = normalized;
+    }
+    return normalized;
+  });
   return {
     map,
+    rows,
     meta: {
       schema: data.schema || null,
       source: data.source || "Unknown",

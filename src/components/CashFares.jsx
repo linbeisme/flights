@@ -7,8 +7,8 @@ import { roundTripDatePairs, searchRoundTripCashFares } from "../api/roundTrip.j
 // ── CashFares (v9) ──────────────────────────────────────────────────
 // • Route/date pre-fill from the reward tab's first selected route
 //   (fields only — nothing runs until "Get cash fares" is pressed).
-// • Airport inputs accept ANY typed 3-letter code, with the 400+
-//   airport catalog offered as suggestions.
+// • Airport inputs accept ANY typed 3-letter code, with the 1,000-airport
+//   catalog offered as suggestions.
 // • Full client-side filter suite: airlines (multi), stops (cumulative,
 //   same semantics as rewards), connection airports, total travel
 //   time, layover duration, and departure/arrival time windows.
@@ -36,11 +36,20 @@ const cabinMeta = (id) => CABINS.find((c) => c.id === id) || { label: id, color:
 const FIELD_LABEL = "text-[10px] font-semibold uppercase tracking-[0.12em] text-heading";
 const FIELD_INPUT = "rounded border border-line bg-card px-2 py-2 font-data text-xs";
 
+function airlineText(carriers = [], operatingCarriers = []) {
+  const ticketing = [...new Set((carriers || []).filter(Boolean))];
+  const operating = [...new Set((operatingCarriers || []).filter(Boolean))].filter((name) => !ticketing.includes(name));
+  return {
+    ticketing: ticketing.join(" · ") || "Airline not supplied",
+    operating: operating.length ? operating.join(" · ") : "",
+  };
+}
+
 function HourRange({ label, value, onChange }) {
   const [h1, h2] = value;
   const clamp = (v) => Math.max(0, Math.min(24, Number.isFinite(v) ? v : 0));
   return (
-    <div className="flex flex-col gap-1">
+    <div className="rounded border border-line bg-card p-2">
       <span className={FIELD_LABEL}>{label}</span>
       <div className="flex items-center gap-1">
         <input
@@ -64,7 +73,7 @@ function HourRange({ label, value, onChange }) {
 
 function CashRow({ f }) {
   const cab = cabinMeta(f.cabin);
-  const airlines = f.carriers?.length ? f.carriers.join(" · ") : null;
+  const airlines = airlineText(f.carriers, f.operatingCarriers);
   return (
     <li className="rounded-md border border-line bg-card p-3 shadow-sm transition-colors hover:border-ink/50">
       <div className="flex flex-wrap items-center gap-3">
@@ -119,14 +128,10 @@ function CashRow({ f }) {
 
         {/* Airline shown prominently, right next to the fare */}
         <div className="text-right">
-          {airlines && (
-            <div
-              className="mb-1 font-data text-base font-bold leading-tight text-ink"
-              title={`Airline${f.carriers.length > 1 ? "s" : ""}: ${airlines}`}
-            >
-              <span className="text-fresh" aria-hidden="true">✈</span> {airlines}
-            </div>
-          )}
+          <div className="mb-1 font-data text-base font-bold leading-tight text-ink" title={`Ticketing airline: ${airlines.ticketing}${airlines.operating ? `; operated by ${airlines.operating}` : ""}`}>
+            <span className="text-fresh" aria-hidden="true">✈</span> {airlines.ticketing}
+            {airlines.operating && <span className="ml-1 text-xs font-semibold text-ink-soft">[Operated by {airlines.operating}]</span>}
+          </div>
           <span
             className="inline-block rounded bg-deal-soft px-2 py-1 font-data text-xl font-bold leading-tight text-deal"
             title="Live cash fare from Google Flights through SerpApi"
@@ -163,10 +168,11 @@ function RoundTripLeg({ label, leg }) {
 
 function RoundTripCashRow({ f }) {
   const cab = cabinMeta(f.cabin);
+  const airlines = airlineText(f.carriers, f.operatingCarriers);
   return (
     <li className="rounded-md border-2 border-line bg-card p-3 shadow-sm transition-colors hover:border-ink/50">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+      <div className="grid items-start gap-3 md:grid-cols-[minmax(0,1fr)_minmax(230px,auto)]">
+        <div className="min-w-0">
           <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-magenta">True round-trip fare</p>
           <p className="font-data text-sm font-bold">{f.origin} ⇄ {f.destination} · {f.searchDate} to {f.returnDate}</p>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
@@ -174,13 +180,12 @@ function RoundTripCashRow({ f }) {
             {Number.isFinite(f.shift) && f.shift !== 0 && <span className="rounded border border-magenta bg-magenta/10 px-1.5 py-0.5 font-data text-[10px] font-semibold text-magenta">whole trip {f.shift > 0 ? "+" : ""}{f.shift}d</span>}
           </div>
         </div>
-        <div className="text-right">
-          {f.carriers?.length ? (
-            <div className="mb-1 font-data text-base font-bold leading-tight text-ink" title={`Airline${f.carriers.length > 1 ? "s" : ""}: ${f.carriers.join(" · ")}`}>
-              <span className="text-fresh" aria-hidden="true">✈</span> {f.carriers.join(" · ")}
-            </div>
-          ) : null}
-          <span className="inline-block rounded bg-deal-soft px-2 py-1 font-data text-xl font-bold text-deal">{formatMoney(f.price, f.currency || BASE_CURRENCY)}</span>
+        <div className="rounded border border-line bg-paper-deep px-3 py-2 text-right">
+          <div className="font-data text-sm font-bold leading-tight text-ink" title={`Ticketing airline: ${airlines.ticketing}${airlines.operating ? `; operated by ${airlines.operating}` : ""}`}>
+            <span className="text-fresh" aria-hidden="true">✈</span> {airlines.ticketing}
+            {airlines.operating && <span className="ml-1 block text-[10px] font-semibold text-ink-soft">[Operated by {airlines.operating}]</span>}
+          </div>
+          <span className="mt-1 inline-block rounded bg-deal-soft px-2.5 py-1 font-data text-2xl font-bold text-deal">{formatMoney(f.price, f.currency || BASE_CURRENCY)}</span>
           <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-deal">complete round trip · 1 traveler</div>
         </div>
       </div>
@@ -188,7 +193,7 @@ function RoundTripCashRow({ f }) {
         <RoundTripLeg label="Outbound" leg={f.outbound} />
         <RoundTripLeg label="Return" leg={f.return} />
       </div>
-      <p className="mt-2 text-[10px] text-ink-soft">{f.providerRequests ? `${f.providerRequests} SerpApi request${f.providerRequests === 1 ? "" : "s"} used for this date pair` : "Live airline detail supplied above the fare."}</p>
+      <p className="mt-2 text-[10px] text-ink-soft">{f.providerRequests ? `${f.providerRequests} SerpApi request${f.providerRequests === 1 ? "" : "s"} used for this date pair` : "Live airline and operating-airline details are shown above the fare."}</p>
     </li>
   );
 }
@@ -327,6 +332,7 @@ export default function CashFares({ proxyBase, prefill, autoResults }) {
   const activeCabinRows = filterCashRowsByCabins(rows, cabins);
   const hiddenCabinRows = rows.length - activeCabinRows.length;
   const shown = applyCashFilters(activeCabinRows, cf);
+  const visibleShown = tripType === "roundtrip" ? shown.slice(0, 20) : shown;
   const lookupDates = tripType === "roundtrip" ? roundTripDatePairs(date, returnDate, dateFlex) : cashSearchDates(date, dateFlex);
   const lookupCount = lookupDates.length * cabins.length;
 
@@ -499,7 +505,7 @@ export default function CashFares({ proxyBase, prefill, autoResults }) {
           disabled={loading}
           className="ml-auto rounded bg-magenta px-4 py-2 text-sm font-semibold text-white hover:bg-magenta-deep disabled:opacity-40"
         >
-          {loading ? "Fetching fares…" : `${tripType === "roundtrip" ? "Get round-trip fares" : "Get cash fares"}${lookupCount > 1 ? ` (${lookupCount} ${tripType === "roundtrip" ? "date pairs" : "lookups"})` : ""}`}
+          {loading ? "Fetching fares…" : `${tripType === "roundtrip" ? "Get round-trip fares" : "Get cash fares"}${lookupCount > 1 ? ` (${lookupCount} lookups)` : ""}`}
         </button>
         <button
           type="button"
@@ -563,8 +569,8 @@ export default function CashFares({ proxyBase, prefill, autoResults }) {
             </div>
           )}
 
-          <div className="flex flex-wrap items-end gap-x-5 gap-y-3">
-            <div className="flex flex-col gap-1">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+            <div className="rounded border border-line bg-card p-2">
               <span className={FIELD_LABEL}>Stops</span>
               <div className="flex gap-1">
                 {[
@@ -591,17 +597,17 @@ export default function CashFares({ proxyBase, prefill, autoResults }) {
               </div>
             </div>
 
-            <label className="flex flex-col gap-1">
+            <label className="rounded border border-line bg-card p-2">
               <span className={FIELD_LABEL}>Connection airport(s)</span>
               <input
                 value={cf.connections}
                 onChange={(e) => setCf((f) => ({ ...f, connections: e.target.value }))}
                 placeholder="e.g. MNL, KUL"
-                className={`${FIELD_INPUT} w-32 uppercase`}
+                className={`${FIELD_INPUT} mt-1 w-full uppercase`}
               />
             </label>
 
-            <div className="flex flex-col gap-1">
+            <div className="rounded border border-line bg-card p-2">
               <span className={FIELD_LABEL}>Total travel time (h)</span>
               <div className="flex items-center gap-1">
                 <input type="number" min={0} value={cf.totalMinH} placeholder="min"
@@ -614,7 +620,7 @@ export default function CashFares({ proxyBase, prefill, autoResults }) {
               </div>
             </div>
 
-            <div className="flex flex-col gap-1">
+            <div className="rounded border border-line bg-card p-2">
               <span className={FIELD_LABEL}>Layover duration (h)</span>
               <div className="flex items-center gap-1">
                 <input type="number" min={0} step="0.5" value={cf.layoverMinH} placeholder="min"
@@ -651,7 +657,7 @@ export default function CashFares({ proxyBase, prefill, autoResults }) {
                 ? `Round trip ${prefill.origin} ⇄ ${prefill.destination}, ${prefill.date} to ${prefill.returnDate}, is pre-filled from your reward selection.`
                 : `Route ${prefill.origin} → ${prefill.destination} on ${prefill.date} is pre-filled from your reward selection — press "Get cash fares" to fetch prices.`
               : tripType === "roundtrip"
-                ? "Pick exact departure and return dates, one cabin, and optional whole-trip flexibility up to ±3 days."
+                ? "Pick exact departure and return dates, one or more cabins, and optional whole-trip flexibility up to ±3 days."
                 : "Pick a route, date, and cabins to pull the full Google Flights price list — one live lookup per cabin."}
           </p>
         </div>
@@ -661,9 +667,10 @@ export default function CashFares({ proxyBase, prefill, autoResults }) {
         <div>
           <p aria-live="polite" className="mb-2 text-xs text-ink-soft">
             <span className="font-data font-semibold text-deal">● LIVE {tripType === "roundtrip" ? "round-trip " : ""}cash fares only</span> · showing{" "}
-            <span className="font-data font-semibold text-ink">{shown.length}</span> of{" "}
+            <span className="font-data font-semibold text-ink">{visibleShown.length}</span> of{" "}
             <span className="font-data">{activeCabinRows.length}</span> selected-cabin option{activeCabinRows.length === 1 ? "" : "s"} ·
             cheapest first
+            {tripType === "roundtrip" && shown.length > 20 && <span className="font-data text-[10px]"> · first 20 of {shown.length} matching round-trip options shown</span>}
             {hiddenCabinRows > 0 && <span className="font-data text-[10px]"> · {hiddenCabinRows} stored fare{hiddenCabinRows === 1 ? "" : "s"} hidden by cabin selection</span>}
             {searchedAt && (
               <span className="font-data text-[10px]">
@@ -674,9 +681,9 @@ export default function CashFares({ proxyBase, prefill, autoResults }) {
               </span>
             )}
           </p>
-          {shown.length > 0 ? (
+          {visibleShown.length > 0 ? (
             <ul className="flex flex-col gap-2">
-              {shown.map((f) => (
+              {visibleShown.map((f) => (
                 tripType === "roundtrip" ? <RoundTripCashRow key={f.id} f={f} /> : <CashRow key={f.id} f={f} />
               ))}
             </ul>

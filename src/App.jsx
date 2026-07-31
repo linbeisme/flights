@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import RouteManager, { MAX_SELECTED } from "./components/RouteManager.jsx";
+import RouteManager, { MAX_SELECTED, sortSavedRoutes } from "./components/RouteManager.jsx";
 import FilterSidebar from "./components/FilterSidebar.jsx";
 import FlightResults from "./components/FlightResults.jsx";
 import CashFares from "./components/CashFares.jsx";
@@ -7,6 +7,7 @@ import RecommendationPanel from "./components/RecommendationPanel.jsx";
 import FxPanel from "./components/FxPanel.jsx";
 import SameFlightView from "./components/SameFlightView.jsx";
 import RoundTripResults from "./components/RoundTripResults.jsx";
+import CppReferencePanel from "./components/CppReferencePanel.jsx";
 import { buildDefaultRoutes } from "./data/defaults.js";
 import { DEMO_ROUTES, getDemoResultsForRoutes } from "./data/demoData.js";
 import { DEFAULT_RECOMMENDATION_PREFS, enrichResult } from "./api/recommendationEngine.js";
@@ -57,12 +58,16 @@ function loadSafeHistory() {
   return sanitizeLiveHistory(loadJSON(LS_HISTORY, []), HISTORY_MAX);
 }
 
+function loadStartupRoutes() {
+  return sortSavedRoutes(loadJSON(LS_ROUTES, []));
+}
+
 
 export default function App() {
   // First start = a clean slate: no routes until the user adds one (or
   // clicks "Restore defaults" for the 22 presets). Persisted routes
   // from earlier sessions load normally.
-  const [routes, setRoutes] = useState(() => loadJSON(LS_ROUTES, []));
+  const [routes, setRoutes] = useState(loadStartupRoutes);
   const [settings, setSettings] = useState(() =>
     loadJSON(LS_SETTINGS, { proxyBase: "", theme: "day", dataMode: "live" })
   );
@@ -168,6 +173,53 @@ export default function App() {
   const valuedResults = useMemo(() => results.map((row) => enrichResult(row, cppLibrary, fxRates)), [results, cppLibrary, fxRates]);
   const foreignCurrencies = useMemo(() => currenciesNeedingFx(results), [results]);
   const filtered = useMemo(() => applyFilters(valuedResults, effectiveFilters), [valuedResults, effectiveFilters]);
+  const displayedRoundTripData = useMemo(() => {
+    if (!roundTripData) return null;
+    if (!Array.isArray(roundTripData.scenarios)) return roundTripData;
+
+    const sameProgram = [];
+    const splitProgram = [];
+    for (const scenario of roundTripData.scenarios) {
+      const outbound = applyFilters(
+        (scenario.outboundRows || []).map((row) => enrichResult(row, cppLibrary, fxRates)),
+        effectiveFilters
+      );
+      const returning = applyFilters(
+        (scenario.returnRows || []).map((row) => enrichResult(row, cppLibrary, fxRates)),
+        effectiveFilters
+      );
+      const scenarioCash = (roundTripData.cashRows || []).filter((row) =>
+        row.origin === scenario.route.origin &&
+        row.destination === scenario.route.destination &&
+        row.datePairKey === scenario.pair.key
+      );
+      const combinations = buildRoundTripCombinations({
+        outboundRows: outbound,
+        returnRows: returning,
+        cashRows: scenarioCash,
+        pax,
+      });
+      sameProgram.push(...combinations.sameProgram);
+      splitProgram.push(...combinations.splitProgram);
+    }
+
+    const sortCombos = (left, right) => {
+      const leftCost = Number.isFinite(left.economicCost) ? left.economicCost : Infinity;
+      const rightCost = Number.isFinite(right.economicCost) ? right.economicCost : Infinity;
+      const leftCash = Number.isFinite(left.cashFare) ? left.cashFare : Infinity;
+      const rightCash = Number.isFinite(right.cashFare) ? right.cashFare : Infinity;
+      return leftCost - rightCost ||
+        ((right.cpp ?? right.derivedBlendedCpp ?? -Infinity) - (left.cpp ?? left.derivedBlendedCpp ?? -Infinity)) ||
+        leftCash - rightCash || left.id.localeCompare(right.id);
+    };
+    const unique = (rows) => [...new Map(rows.map((row) => [row.id, row])).values()].sort(sortCombos).slice(0, 80);
+    return {
+      ...roundTripData,
+      sameProgram: unique(sameProgram),
+      splitProgram: unique(splitProgram),
+      activeFilters: effectiveFilters,
+    };
+  }, [roundTripData, effectiveFilters, cppLibrary, fxRates, pax]);
 
   // ── Route CRUD ────────────────────────────────────────────────────
   const toggleSelect = (id) =>
@@ -283,41 +335,18 @@ export default function App() {
         const ts = Date.now();
         const cashRows = cashPerRoute.flat();
         const allAwardRows = [];
-        const sameProgram = [];
-        const splitProgram = [];
-        const roundTripFilters = { ...effectiveFilters, cabins: [cashCabin] };
-
-        for (const scenario of awardScenarios) {
-          const outboundRaw = assertLiveResults(scenario.awards.outbound || []).map((row) => ({ ...row, checkedAt: ts }));
-          const returnRaw = assertLiveResults(scenario.awards.return || []).map((row) => ({ ...row, checkedAt: ts }));
-          const outbound = applyFilters(outboundRaw.map((row) => enrichResult(row, cppLibrary, fxRates)), roundTripFilters);
-          const returning = applyFilters(returnRaw.map((row) => enrichResult(row, cppLibrary, fxRates)), roundTripFilters);
-          allAwardRows.push(...outboundRaw, ...returnRaw);
-          const scenarioCash = cashRows.filter((row) =>
-            row.origin === scenario.route.origin &&
-            row.destination === scenario.route.destination &&
-            row.datePairKey === scenario.pair.key &&
-            row.cabin === cashCabin
-          );
-          const combinations = buildRoundTripCombinations({ outboundRows: outbound, returnRows: returning, cashRows: scenarioCash, pax });
-          sameProgram.push(...combinations.sameProgram);
-          splitProgram.push(...combinations.splitProgram);
-        }
-
-        const sortCombos = (left, right) => {
-          const leftCost = Number.isFinite(left.economicCost) ? left.economicCost : Infinity;
-          const rightCost = Number.isFinite(right.economicCost) ? right.economicCost : Infinity;
-          const leftCash = Number.isFinite(left.cashFare) ? left.cashFare : Infinity;
-          const rightCash = Number.isFinite(right.cashFare) ? right.cashFare : Infinity;
-          return leftCost - rightCost || (right.cpp || -Infinity) - (left.cpp || -Infinity) || leftCash - rightCash;
-        };
-        const unique = (rows) => [...new Map(rows.map((row) => [row.id, row])).values()].sort(sortCombos).slice(0, 60);
+        const scenarios = awardScenarios.map((scenario) => {
+          const outboundRows = assertLiveResults(scenario.awards.outbound || []).map((row) => ({ ...row, checkedAt: ts }));
+          const returnRows = assertLiveResults(scenario.awards.return || []).map((row) => ({ ...row, checkedAt: ts }));
+          allAwardRows.push(...outboundRows, ...returnRows);
+          return { route: scenario.route, pair: scenario.pair, outboundRows, returnRows };
+        });
         const safeAwardRows = dedupeExpandedResults(allAwardRows);
         const data = {
           route: roundTripRoute,
-          sameProgram: unique(sameProgram),
-          splitProgram: unique(splitProgram),
+          scenarios,
           cashRows,
+          programIdsSearched: [...filters.programs],
           searchedAt: ts,
         };
         setResults(safeAwardRows);
@@ -474,10 +503,10 @@ export default function App() {
     <div className="min-h-screen bg-paper text-ink">
       {/* ── Ops bar ── */}
       <header className="border-b-2 border-ink bg-paper">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-3">
+        <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-3 px-4 py-3">
           <h1 className="flex items-baseline gap-2 font-data text-lg font-bold tracking-[0.2em]">
             <span>POINTS<span className="text-magenta">BOARD</span></span>
-            <span className="rounded border border-line bg-card px-1.5 py-0.5 text-[10px] font-bold tracking-normal text-ink-soft">v11.4.2</span>
+            <span className="rounded border border-line bg-card px-1.5 py-0.5 text-[10px] font-bold tracking-normal text-ink-soft">v11.4.3</span>
           </h1>
           <p className="hidden text-xs text-ink-soft sm:block">
             award space · taxes · cash fares · cents per point
@@ -519,14 +548,14 @@ export default function App() {
 
         {showDataNote && (
           <div className="border-t border-line bg-deal-soft">
-            <p className="mx-auto max-w-6xl px-4 py-2 text-[11px] text-ink">
+            <p className="mx-auto max-w-[1440px] px-4 py-2 text-[11px] text-ink">
               <span className="font-semibold">Strict mode separation:</span> Live mode calls only seats.aero and the configured cash-fare service. Demo mode performs no award or cash-fare API calls and loads only clearly flagged pre-built scenarios. Turning Demo off clears demo results, and Live mode rejects demo-tagged history or returned rows.
             </p>
           </div>
         )}
         {showSettings && (
           <div className="border-t border-line bg-paper-deep">
-            <div className="mx-auto flex max-w-6xl flex-wrap items-end gap-4 px-4 py-3">
+            <div className="mx-auto flex max-w-[1440px] flex-wrap items-end gap-4 px-4 py-3">
               <label className="flex min-w-64 flex-1 flex-col gap-1 text-xs">
                 Proxy base URL (optional)
                 <input
@@ -549,7 +578,7 @@ export default function App() {
       </header>
 
       {/* ── Main grid ── */}
-      <main className="mx-auto grid max-w-6xl grid-cols-1 gap-5 px-4 py-5 lg:grid-cols-[280px_1fr]">
+      <main className="mx-auto grid max-w-[1440px] grid-cols-1 gap-5 px-4 py-5 lg:grid-cols-[320px_minmax(0,1fr)]">
         <aside className="flex flex-col gap-5">
           <RouteManager
             routes={routes}
@@ -605,6 +634,7 @@ export default function App() {
             fxRates={fxRates}
             onChange={setFxRates}
           />
+          <CppReferencePanel library={cppLibrary} error={cppLibraryError} />
 
           <div hidden={activeTab !== "cash"}>
             <div className={activeTab === "cash" ? "rounded-b-md border border-deal bg-deal-soft/40 p-3" : ""}>
@@ -727,7 +757,7 @@ export default function App() {
 
           {activeTab === "rewards" ? (
             roundTripRoute ? (
-              <RoundTripResults data={roundTripData} loading={loading} error={error} searched={searched} searchedAt={searchedAt} selectedPrograms={filters.programs} />
+              <RoundTripResults data={displayedRoundTripData} loading={loading} error={error} searched={searched} searchedAt={searchedAt} selectedPrograms={filters.programs} filters={effectiveFilters} />
             ) : (
               <>
                 <RecommendationPanel
@@ -762,8 +792,8 @@ export default function App() {
         </section>
       </main>
 
-      <footer className="mx-auto max-w-6xl px-4 pb-6 text-[11px] text-ink-soft">
-        Award data © seats.aero. Live mode never creates a synthetic cash fare. CPP uses an exact cash itinerary when flight numbers match; otherwise it is labeled as a probable schedule match, same-airline benchmark, or route/cabin benchmark. When no live fare is available, cash fare, CPP, and cash-based savings remain unavailable. CPP = ((cash fare − taxes and fees) ÷ points) × 100. <span className="font-data font-semibold text-magenta">build v11.4.2 · round-trip cash-airline visibility + live program re-filtering + split-program CPP + multi-cabin cash fares</span>
+      <footer className="mx-auto max-w-[1440px] px-4 pb-6 text-[11px] text-ink-soft">
+        Award data © seats.aero. Live mode never creates a synthetic cash fare. CPP uses an exact cash itinerary when flight numbers match; otherwise it is labeled as a probable schedule match, same-airline benchmark, or route/cabin benchmark. When no live fare is available, cash fare, CPP, and cash-based savings remain unavailable. CPP = ((cash fare − taxes and fees) ÷ points) × 100. <span className="font-data font-semibold text-magenta">build v11.4.3 · responsive layout + live result filters + route-type organization + 20/25 result caps + 30-day FX + CPP reference library</span>
       </footer>
     </div>
   );
