@@ -1,7 +1,3 @@
-RELEASE_NOTES_V11_4_2.md
-START_HERE_UPDATE.md
-UPDATED_FILES_V11_4_2.txt
-UPDATE_INSTRUCTIONS_V11_4_2.md
 functions/api/health.js
 index.html
 package-lock.json

@@ -6,7 +6,6 @@ const routes = fs.readFileSync("src/components/RouteManager.jsx", "utf8");
 const cash = fs.readFileSync("src/components/CashFares.jsx", "utf8");
 const api = fs.readFileSync("src/api/flightApi.js", "utf8");
 const html = fs.readFileSync("index.html", "utf8");
-const favicon = fs.readFileSync("public/flight-favicon.svg", "utf8");
 
 // The existing add-route form is moved, not redesigned or duplicated.
 const formStart = routes.indexOf('<form onSubmit={handleAdd}');
@@ -33,10 +32,10 @@ for (const label of ["Get cash fares", "Clear fares", "Reset filters", "Saved se
   assert.ok(cash.includes(label));
 }
 
-// One red airplane comes from the favicon only; the page title contains no airplane emoji.
-assert.match(favicon, /fill="#dc2626"/);
-assert.match(favicon, /<path fill="#dc2626"/);
+// The bookmark icon now uses the uploaded red-airplane PNG; the page title contains no airplane emoji.
+assert.ok(fs.existsSync("public/red-airplane-favicon.png"));
+assert.match(html, /red-airplane-favicon\.png/);
 assert.doesNotMatch(html, /✈|✈️/);
-assert.match(html, /PointsBoard v11\.4\.1/);
+assert.match(html, /PointsBoard v11\.4\.2/);
 
-console.log("✓ v11.4.1 retained-v11.3.7 regression checks passed: original controls retained, add-route moved, cash fares reused, and single red favicon configured");
+console.log("✓ v11.4.2 retained-v11.3.7 regression checks passed: original controls retained, add-route moved, cash fares reused, and uploaded red-airplane favicon configured");

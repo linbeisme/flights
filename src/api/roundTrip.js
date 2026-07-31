@@ -172,10 +172,38 @@ function pointBreakdown(outbound, inbound) {
   return result;
 }
 
+function allocateDerivedCashShares(totalCash, outbound, inbound) {
+  if (!Number.isFinite(totalCash)) return null;
+  const outEconomic = Number(outbound.economicCost || 0);
+  const retEconomic = Number(inbound.economicCost || 0);
+  const outPoints = Number(outbound.points || 0);
+  const retPoints = Number(inbound.points || 0);
+
+  let weights = [1, 1];
+  let method = 'equal-split';
+  if (outEconomic > 0 && retEconomic > 0) {
+    weights = [outEconomic, retEconomic];
+    method = 'economic-cost-weighted';
+  } else if (outPoints > 0 && retPoints > 0) {
+    weights = [outPoints, retPoints];
+    method = 'points-weighted';
+  }
+
+  const totalWeight = weights[0] + weights[1];
+  const outboundCashShare = totalWeight > 0 ? (Number(totalCash) * weights[0]) / totalWeight : Number(totalCash) / 2;
+  const returnCashShare = Number(totalCash) - outboundCashShare;
+  return {
+    method,
+    outboundCashShare,
+    returnCashShare,
+  };
+}
+
 function buildCombination(outbound, inbound, cashRows, kind, pax) {
   const cash = selectRoundTripCash(outbound, inbound, cashRows);
   const sameProgram = outbound.program === inbound.program;
-  const totalPoints = sameProgram ? Number(outbound.points || 0) + Number(inbound.points || 0) : null;
+  const totalPointUnits = Number(outbound.points || 0) + Number(inbound.points || 0);
+  const totalPoints = sameProgram ? totalPointUnits : null;
   const taxesUsd = Number.isFinite(outbound.taxesUsd) && Number.isFinite(inbound.taxesUsd)
     ? outbound.taxesUsd + inbound.taxesUsd
     : null;
@@ -183,6 +211,30 @@ function buildCombination(outbound, inbound, cashRows, kind, pax) {
     ? outbound.economicCost + inbound.economicCost
     : null;
   const cpp = sameProgram ? computeCPP(cash.price, taxesUsd, totalPoints) : null;
+  const derivedCashShares = !sameProgram ? allocateDerivedCashShares(cash.price, outbound, inbound) : null;
+  const legCppBreakdown = !sameProgram && derivedCashShares
+    ? [
+        {
+          label: 'Outbound',
+          program: outbound.program,
+          programLabel: outbound.programLabel,
+          points: Number(outbound.points || 0),
+          cashShare: derivedCashShares.outboundCashShare,
+          taxesUsd: Number.isFinite(outbound.taxesUsd) ? outbound.taxesUsd : null,
+          cpp: computeCPP(derivedCashShares.outboundCashShare, outbound.taxesUsd, outbound.points),
+        },
+        {
+          label: 'Return',
+          program: inbound.program,
+          programLabel: inbound.programLabel,
+          points: Number(inbound.points || 0),
+          cashShare: derivedCashShares.returnCashShare,
+          taxesUsd: Number.isFinite(inbound.taxesUsd) ? inbound.taxesUsd : null,
+          cpp: computeCPP(derivedCashShares.returnCashShare, inbound.taxesUsd, inbound.points),
+        },
+      ]
+    : [];
+  const derivedBlendedCpp = !sameProgram ? computeCPP(cash.price, taxesUsd, totalPointUnits) : null;
   const savingsVsCash = Number.isFinite(cash.price) && Number.isFinite(economicCost) ? cash.price - economicCost : null;
   const knownSeats = [outbound.seats, inbound.seats].filter(Number.isFinite);
   const seats = knownSeats.length ? Math.min(...knownSeats) : null;
@@ -201,6 +253,7 @@ function buildCombination(outbound, inbound, cashRows, kind, pax) {
     program: sameProgram ? outbound.program : null,
     programLabel: sameProgram ? outbound.programLabel : null,
     pointBreakdown: pointBreakdown(outbound, inbound),
+    totalPointUnits,
     totalPoints,
     taxesUsd,
     economicCost,
@@ -209,6 +262,9 @@ function buildCombination(outbound, inbound, cashRows, kind, pax) {
     cashMatchType: cash.matchType,
     cashItinerary: cash.row,
     cpp,
+    derivedBlendedCpp,
+    legCppBreakdown,
+    cashSplitMethod: derivedCashShares?.method || null,
     savingsVsCash,
     seats,
     pax,

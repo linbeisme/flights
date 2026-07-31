@@ -175,6 +175,11 @@ function RoundTripCashRow({ f }) {
           </div>
         </div>
         <div className="text-right">
+          {f.carriers?.length ? (
+            <div className="mb-1 font-data text-base font-bold leading-tight text-ink" title={`Airline${f.carriers.length > 1 ? "s" : ""}: ${f.carriers.join(" · ")}`}>
+              <span className="text-fresh" aria-hidden="true">✈</span> {f.carriers.join(" · ")}
+            </div>
+          ) : null}
           <span className="inline-block rounded bg-deal-soft px-2 py-1 font-data text-xl font-bold text-deal">{formatMoney(f.price, f.currency || BASE_CURRENCY)}</span>
           <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-deal">complete round trip · 1 traveler</div>
         </div>
@@ -183,7 +188,7 @@ function RoundTripCashRow({ f }) {
         <RoundTripLeg label="Outbound" leg={f.outbound} />
         <RoundTripLeg label="Return" leg={f.return} />
       </div>
-      <p className="mt-2 text-[10px] text-ink-soft">Airlines: {f.carriers?.length ? f.carriers.join(" · ") : "not supplied"}{f.providerRequests ? ` · ${f.providerRequests} SerpApi request${f.providerRequests === 1 ? "" : "s"} used for this date pair` : ""}</p>
+      <p className="mt-2 text-[10px] text-ink-soft">{f.providerRequests ? `${f.providerRequests} SerpApi request${f.providerRequests === 1 ? "" : "s"} used for this date pair` : "Live airline detail supplied above the fare."}</p>
     </li>
   );
 }
@@ -247,7 +252,7 @@ export default function CashFares({ proxyBase, prefill, autoResults }) {
     const savedDate = autoResults.date || prefill?.date || liveRows[0]?.searchDate || "";
     const savedReturnDate = nextTripType === "roundtrip" ? (autoResults.returnDate || prefill?.returnDate || liveRows[0]?.returnDate || "") : "";
     const savedFlex = nextTripType === "roundtrip" ? Math.min(3, Number(autoResults.flex || prefill?.flex || 0)) : Number(autoResults.flex || prefill?.flex || 0);
-    const selectedCabins = nextTripType === "roundtrip" ? [nextCabins[0] || autoResults.cabin || "economy"] : nextCabins;
+    const selectedCabins = nextCabins.length ? nextCabins : [autoResults.cabin || "economy"];
     setOrigin(savedOrigin);
     setDestination(savedDestination);
     setDate(savedDate);
@@ -286,15 +291,13 @@ export default function CashFares({ proxyBase, prefill, autoResults }) {
 
   const toggleCabin = (id) => {
     const wasSelected = cabins.includes(id);
-    const next = tripType === "roundtrip" ? [id] : (wasSelected ? cabins.filter((x) => x !== id) : [...cabins, id]);
+    const next = wasSelected ? cabins.filter((x) => x !== id) : [...cabins, id];
     setCabins(next);
     setError("");
 
     if (searched || rows.length > 0) {
       const label = cabinMeta(id).label;
-      if (tripType === "roundtrip") {
-        setNotice(`${label} is the only selected round-trip cabin. Choose another cabin to replace it.`);
-      } else if (wasSelected) {
+      if (wasSelected) {
         setNotice(`${label} fares are hidden. Stored search results remain available until Clear fares is clicked.`);
       } else if (searchedCabins.includes(id)) {
         setNotice(`${label} fares are visible again from the stored search results.`);
@@ -310,7 +313,7 @@ export default function CashFares({ proxyBase, prefill, autoResults }) {
     if (!e) return;
     setOrigin(e.origin); setDestination(e.destination); setDate(e.date); setReturnDate(e.returnDate || "");
     setTripType(e.tripType === "roundtrip" ? "roundtrip" : "oneway"); setDateFlex(e.tripType === "roundtrip" ? Math.min(3, e.flex || 0) : (e.flex || 0));
-    setCabins(e.tripType === "roundtrip" ? [e.cabins?.[0] || "economy"] : e.cabins); setSearchedCabins(e.cabins); setRows(e.rows); setCf(CASH_FILTERS);
+    setCabins(e.cabins?.length ? e.cabins : ["economy"]); setSearchedCabins(e.cabins || []); setRows(e.rows); setCf(CASH_FILTERS);
     setSearchedAt(e.searchedAt); setSearched(true); setError(""); setNotice("");
   }
 
@@ -325,7 +328,7 @@ export default function CashFares({ proxyBase, prefill, autoResults }) {
   const hiddenCabinRows = rows.length - activeCabinRows.length;
   const shown = applyCashFilters(activeCabinRows, cf);
   const lookupDates = tripType === "roundtrip" ? roundTripDatePairs(date, returnDate, dateFlex) : cashSearchDates(date, dateFlex);
-  const lookupCount = tripType === "roundtrip" ? lookupDates.length : lookupDates.length * cabins.length;
+  const lookupCount = lookupDates.length * cabins.length;
 
   async function run() {
     const o = normalizeAirportInput(origin);
@@ -337,15 +340,17 @@ export default function CashFares({ proxyBase, prefill, autoResults }) {
       if (!returnDate) { setError("Pick a return date."); return; }
       if (Date.parse(`${returnDate}T00:00:00Z`) <= Date.parse(`${date}T00:00:00Z`)) { setError("Return date must be after the departure date."); return; }
       if (![0, 1, 3].includes(Number(dateFlex))) { setError("Round-trip flexibility is limited to exact dates, ±1 day, or ±3 days."); return; }
-      if (cabins.length !== 1) { setError("Round-trip cash fares allow exactly one cabin at a time."); return; }
-    } else if (cabins.length === 0) { setError("Select at least one cabin."); return; }
+    }
+    if (cabins.length === 0) { setError("Select at least one cabin."); return; }
     setError("");
     setNotice("");
     setLoading(true);
     setSearched(true);
     try {
       const data = tripType === "roundtrip"
-        ? await searchRoundTripCashFares({ proxyBase, origin: o, destination: d, departDate: date, returnDate, flex: dateFlex, cabin: cabins[0], adults: 1 })
+        ? (await Promise.all(cabins.map((cabin) =>
+            searchRoundTripCashFares({ proxyBase, origin: o, destination: d, departDate: date, returnDate, flex: dateFlex, cabin, adults: 1 })
+          ))).flat().sort((a, b) => a.price - b.price || String(a.searchDate).localeCompare(String(b.searchDate)))
         : await searchCashFares({ proxyBase, origin: o, destination: d, date, flex: dateFlex, cabins });
       const ts = Date.now();
       if (!data.length) {
@@ -387,7 +392,7 @@ export default function CashFares({ proxyBase, prefill, autoResults }) {
                 setTripType(id);
                 if (id === "roundtrip") {
                   setDateFlex((value) => Math.min(3, Number(value || 0)));
-                  setCabins((value) => [value[0] || "economy"]);
+                  setCabins((value) => (value.length ? value : ["economy"]));
                 }
                 setRows([]); setSearched(false); setError(""); setNotice("");
               }}
@@ -397,7 +402,7 @@ export default function CashFares({ proxyBase, prefill, autoResults }) {
               {label}
             </button>
           ))}
-          {tripType === "roundtrip" && <span className="text-[10px] text-magenta">Maximum ±3 days · one cabin · dates shift together</span>}
+          {tripType === "roundtrip" && <span className="text-[10px] text-magenta">Maximum ±3 days · multiple cabins allowed · dates shift together</span>}
         </div>
         <label className="flex min-w-40 flex-1 flex-col gap-1">
           <span className={FIELD_LABEL}>Departing city</span>
@@ -446,7 +451,7 @@ export default function CashFares({ proxyBase, prefill, autoResults }) {
         </label>
 
         <fieldset className="flex flex-col gap-1">
-          <legend className={FIELD_LABEL}>{tripType === "roundtrip" ? "Cabin (choose exactly one)" : "Cabins (one fare lookup each)"}</legend>
+          <legend className={FIELD_LABEL}>{tripType === "roundtrip" ? "Cabins (one round-trip lookup set each)" : "Cabins (one fare lookup each)"}</legend>
           <div className="flex flex-wrap gap-1">
             {CABINS.map((c) => {
               const on = cabins.includes(c.id);
@@ -506,7 +511,7 @@ export default function CashFares({ proxyBase, prefill, autoResults }) {
         </button>
         <p className="w-full text-[10px] text-ink-soft">
           {tripType === "roundtrip"
-            ? `Whole-trip flexibility preserves trip length and shifts both dates together. Current selection: ${lookupCount || 0} date pair${lookupCount === 1 ? "" : "s"}; SerpApi may use multiple provider requests per pair to retrieve complete return choices.`
+            ? `Whole-trip flexibility preserves trip length and shifts both dates together. Current selection: ${lookupCount || 0} lookup${lookupCount === 1 ? "" : "s"} across ${lookupDates.length || 0} date pair${lookupDates.length === 1 ? "" : "s"} and ${cabins.length || 0} cabin${cabins.length === 1 ? "" : "s"}; SerpApi may use multiple provider requests per pair and cabin to retrieve complete return choices.`
             : `Date flexibility runs one live cash-fare lookup per selected cabin per date. Current selection: ${lookupCount || 0} lookup${lookupCount === 1 ? "" : "s"} across ${lookupDates.length || 0} date${lookupDates.length === 1 ? "" : "s"}.`}
         </p>
         {notice && (

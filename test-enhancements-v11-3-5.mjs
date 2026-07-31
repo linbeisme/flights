@@ -10,8 +10,8 @@ const cash = fs.readFileSync("src/components/CashFares.jsx", "utf8");
 const rec = fs.readFileSync("src/components/RecommendationPanel.jsx", "utf8");
 const health = fs.readFileSync("functions/api/health.js", "utf8");
 
-assert.match(app, /v11\.4\.1/);
-assert.match(health, /version: "11\.4\.1"/);
+assert.match(app, /v11\.4\.2/);
+assert.match(health, /version: "11\.4\.2"/);
 assert.match(app, /details\[data-pb-popover\]\[open\]/);
 assert.match(app, /removeAttribute\("open"\)/);
 assert.match(rec, /data-pb-popover/);
@@ -45,4 +45,4 @@ assert.equal(cashSearchDates("2026-07-24", 3).length, 7);
 assert.equal(cashSearchDates("2026-07-24", 7).length, 15);
 assert.deepEqual(cashSearchDates("bad-date", 7), []);
 
-console.log("✓ retained v11.3.5 features with v11.4.1 version badge, click-away popovers, blue controls, automatic FX reveal, saved-route toggle, program hover labels, and flexible cash-date checks passed");
+console.log("✓ retained v11.3.5 features with v11.4.2 version badge, click-away popovers, blue controls, automatic FX reveal, saved-route toggle, program hover labels, and flexible cash-date checks passed");

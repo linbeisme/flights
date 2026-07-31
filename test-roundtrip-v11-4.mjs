@@ -63,7 +63,7 @@ await test("same-program combination calculates combined points, CPP, economic c
   assert.equal(combo.bookingStructure, "two-one-way-same-program");
 });
 
-await test("split-program combination keeps point currencies separate and does not blend CPP", () => {
+await test("split-program combination keeps point currencies separate while exposing leg CPP and derived blended CPP", () => {
   const result = buildRoundTripCombinations({ outboundRows: [outbound], returnRows: [splitReturn], cashRows, pax: 1 });
   assert.equal(result.splitProgram.length, 1);
   const combo = result.splitProgram[0];
@@ -73,6 +73,10 @@ await test("split-program combination keeps point currencies separate and does n
   assert.equal(combo.economicCost, 2250);
   assert.equal(combo.separateReservations, true);
   assert.equal(combo.bookingStructure, "two-one-way-split-program");
+  assert.ok(combo.derivedBlendedCpp > 3);
+  assert.equal(combo.legCppBreakdown.length, 2);
+  assert.ok(combo.legCppBreakdown.every((leg) => leg.cpp > 3));
+  assert.equal(combo.cashSplitMethod, "economic-cost-weighted");
 });
 
 await test("seat requirement applies to both directions", () => {
@@ -172,9 +176,9 @@ await test("UI source retains explicit constraints and separate-reservation disc
   const resultsUi = fs.readFileSync("src/components/RoundTripResults.jsx", "utf8");
   const appUi = fs.readFileSync("src/App.jsx", "utf8");
   assert.match(routeUi, /Maximum flexibility is ±3 days/);
-  assert.match(cashUi, /Round-trip cash fares allow exactly one cabin at a time/);
+  assert.match(cashUi, /multiple cabins allowed/);
   assert.match(resultsUi, /Two separate one-way awards/);
-  assert.match(resultsUi, /Not combined across programs/);
+  assert.match(resultsUi, /Derived \/ blended across both point currencies/);
   assert.match(resultsUi, /per traveler/);
   assert.match(appUi, /adults: 1/);
 });

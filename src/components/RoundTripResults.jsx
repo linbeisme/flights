@@ -53,6 +53,24 @@ function cashMatchLabel(value) {
   })[value] || value || "Round-trip cash fare unavailable";
 }
 
+function filterCombinationsByPrograms(rows, selectedPrograms = []) {
+  const enabled = new Set(Array.isArray(selectedPrograms) ? selectedPrograms : []);
+  if (enabled.size === 0) return [];
+  return (rows || []).filter((combo) =>
+    combo.sameProgram
+      ? enabled.has(combo.program)
+      : enabled.has(combo.outbound?.program) && enabled.has(combo.return?.program)
+  );
+}
+
+function splitMethodLabel(method) {
+  return ({
+    "economic-cost-weighted": "Cash split derived from each leg’s reference economic cost.",
+    "points-weighted": "Cash split derived from each leg’s point total.",
+    "equal-split": "Cash split derived as a simple 50/50 allocation.",
+  })[method] || "Cash split derived across the two legs.";
+}
+
 function CombinationCard({ combo, rank }) {
   const breakdown = Object.entries(combo.pointBreakdown || {});
   const negativeSavings = Number.isFinite(combo.savingsVsCash) && combo.savingsVsCash < 0;
@@ -94,8 +112,30 @@ function CombinationCard({ combo, rank }) {
         </div>
         <div>
           <p className="text-[10px] uppercase tracking-wider text-ink-soft">Round-trip CPP</p>
-          <p className="font-data text-sm font-bold text-deal">{combo.cpp == null ? (combo.sameProgram ? "Unavailable" : "Not combined across programs") : `${combo.cpp.toFixed(2)}¢/pt`}</p>
-          {!combo.sameProgram && <p className="text-[10px] text-ink-soft">Different point currencies are kept separate.</p>}
+          {combo.sameProgram ? (
+            <>
+              <p className="font-data text-sm font-bold text-deal">{combo.cpp == null ? "Unavailable" : `${combo.cpp.toFixed(2)}¢/pt`}</p>
+              <p className="text-[10px] text-ink-soft">Same loyalty currency across both legs.</p>
+            </>
+          ) : (
+            <>
+              <p className="font-data text-sm font-bold text-deal">{combo.derivedBlendedCpp == null ? "Unavailable" : `${combo.derivedBlendedCpp.toFixed(2)}¢/pt`}</p>
+              <p className="text-[10px] text-ink-soft">Derived / blended across both point currencies.</p>
+              {combo.legCppBreakdown?.length > 0 && (
+                <div className="mt-1 space-y-0.5 font-data text-[10px] font-semibold">
+                  {combo.legCppBreakdown.map((leg) => {
+                    const meta = programMeta(leg.program);
+                    return (
+                      <div key={`${combo.id}-${leg.label}`} style={{ color: meta.color }}>
+                        {leg.label}: {leg.programLabel || meta.label} {leg.cpp == null ? "—" : `${leg.cpp.toFixed(2)}¢/pt`}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <p className="mt-1 text-[10px] text-ink-soft">{splitMethodLabel(combo.cashSplitMethod)}</p>
+            </>
+          )}
         </div>
         <div>
           <p className="text-[10px] uppercase tracking-wider text-ink-soft">Economic cost</p>
@@ -135,13 +175,15 @@ function Group({ title, description, rows }) {
   );
 }
 
-export default function RoundTripResults({ data, loading, error, searched, searchedAt }) {
+export default function RoundTripResults({ data, loading, error, searched, searchedAt, selectedPrograms = [] }) {
   if (loading) return <div className="space-y-2">{[0, 1, 2].map((index) => <div key={index} className="h-44 animate-pulse rounded border border-line bg-paper-deep" />)}</div>;
   if (error) return <div role="alert" className="rounded border border-magenta bg-magenta/10 p-3 text-sm text-magenta">{error}</div>;
   if (!searched) return <div className="rounded border border-dashed border-line p-6 text-center text-sm text-ink-soft">Select one saved round-trip route and search award space.</div>;
   if (!data) return <div className="rounded border border-dashed border-line p-6 text-center text-sm text-ink-soft">No complete round-trip award combinations were returned.</div>;
 
   const cashDates = new Set((data.cashRows || []).map((row) => row.datePairKey)).size;
+  const sameProgramRows = filterCombinationsByPrograms(data.sameProgram || [], selectedPrograms);
+  const splitProgramRows = filterCombinationsByPrograms(data.splitProgram || [], selectedPrograms);
   return (
     <section aria-label="Round-trip award combinations">
       <div className="rounded border-2 border-magenta bg-magenta/5 p-3">
@@ -156,8 +198,8 @@ export default function RoundTripResults({ data, loading, error, searched, searc
         <p className="mt-2 text-[11px] text-ink-soft">Award results are paired from directional outbound and return availability. Cash results are requested as true round-trip itineraries for one traveler so CPP and economic-cost comparisons remain per traveler. The passenger field is used to require enough award seats on both legs. {cashDates} shifted date pair{cashDates === 1 ? "" : "s"} returned live cash data.</p>
       </div>
 
-      <Group title="Same-program round trips" description="Both directions use the same loyalty currency. A combined round-trip CPP is shown when cash fare and taxes are available." rows={data.sameProgram || []} />
-      <Group title="Split-program round trips" description="Outbound and return use different programs. Each program name uses its filter-badge color; points remain separated and economic cost is combined using each program’s reference valuation." rows={data.splitProgram || []} />
+      <Group title="Same-program round trips" description="Both directions use the same loyalty currency. A combined round-trip CPP is shown when cash fare and taxes are available." rows={sameProgramRows} />
+      <Group title="Split-program round trips" description="Outbound and return use different programs. Each program name uses its filter-badge color; points remain separated, each leg now shows its own derived CPP, and a blended CPP is also displayed for the assembled round trip." rows={splitProgramRows} />
     </section>
   );
 }

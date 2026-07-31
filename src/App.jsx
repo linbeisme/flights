@@ -477,7 +477,7 @@ export default function App() {
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-3">
           <h1 className="flex items-baseline gap-2 font-data text-lg font-bold tracking-[0.2em]">
             <span>POINTS<span className="text-magenta">BOARD</span></span>
-            <span className="rounded border border-line bg-card px-1.5 py-0.5 text-[10px] font-bold tracking-normal text-ink-soft">v11.4.1</span>
+            <span className="rounded border border-line bg-card px-1.5 py-0.5 text-[10px] font-bold tracking-normal text-ink-soft">v11.4.2</span>
           </h1>
           <p className="hidden text-xs text-ink-soft sm:block">
             award space · taxes · cash fares · cents per point
@@ -727,7 +727,7 @@ export default function App() {
 
           {activeTab === "rewards" ? (
             roundTripRoute ? (
-              <RoundTripResults data={roundTripData} loading={loading} error={error} searched={searched} searchedAt={searchedAt} />
+              <RoundTripResults data={roundTripData} loading={loading} error={error} searched={searched} searchedAt={searchedAt} selectedPrograms={filters.programs} />
             ) : (
               <>
                 <RecommendationPanel
@@ -763,7 +763,7 @@ export default function App() {
       </main>
 
       <footer className="mx-auto max-w-6xl px-4 pb-6 text-[11px] text-ink-soft">
-        Award data © seats.aero. Live mode never creates a synthetic cash fare. CPP uses an exact cash itinerary when flight numbers match; otherwise it is labeled as a probable schedule match, same-airline benchmark, or route/cabin benchmark. When no live fare is available, cash fare, CPP, and cash-based savings remain unavailable. CPP = ((cash fare − taxes and fees) ÷ points) × 100. <span className="font-data font-semibold text-magenta">build v11.4.1 · round-trip award pairing + true round-trip cash fares + whole-trip date shifting</span>
+        Award data © seats.aero. Live mode never creates a synthetic cash fare. CPP uses an exact cash itinerary when flight numbers match; otherwise it is labeled as a probable schedule match, same-airline benchmark, or route/cabin benchmark. When no live fare is available, cash fare, CPP, and cash-based savings remain unavailable. CPP = ((cash fare − taxes and fees) ÷ points) × 100. <span className="font-data font-semibold text-magenta">build v11.4.2 · round-trip cash-airline visibility + live program re-filtering + split-program CPP + multi-cabin cash fares</span>
       </footer>
     </div>
   );
