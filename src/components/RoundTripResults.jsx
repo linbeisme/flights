@@ -60,13 +60,16 @@ function cashMatchLabel(value) {
 function filterCombinations(rows, filters = {}, selectedPrograms = []) {
   const enabled = new Set(Array.isArray(selectedPrograms) ? selectedPrograms : []);
   if (enabled.size === 0) return [];
+  const directionalFilters = filters ? { ...filters, maxTaxesUsd: "" } : filters;
+  const maximumTaxes = filters?.maxTaxesUsd === "" || filters?.maxTaxesUsd == null ? null : Number(filters.maxTaxesUsd);
   return (rows || []).filter((combo) => {
     const programsPass = combo.sameProgram
       ? enabled.has(combo.program)
       : enabled.has(combo.outbound?.program) && enabled.has(combo.return?.program);
     if (!programsPass) return false;
-    if (!filters || !Array.isArray(filters.programs)) return true;
-    return applyFilters([combo.outbound], filters).length > 0 && applyFilters([combo.return], filters).length > 0;
+    if (maximumTaxes != null && (!Number.isFinite(maximumTaxes) || maximumTaxes < 0 || !Number.isFinite(combo.taxesUsd) || combo.taxesUsd > maximumTaxes)) return false;
+    if (!directionalFilters || !Array.isArray(directionalFilters.programs)) return true;
+    return applyFilters([combo.outbound], directionalFilters).length > 0 && applyFilters([combo.return], directionalFilters).length > 0;
   });
 }
 
@@ -114,19 +117,19 @@ function CombinationCard({ combo, rank }) {
         </div>
         <div>
           <p className="text-[10px] uppercase tracking-wider text-ink-soft">True round-trip cash fare · per traveler</p>
-          <p className="font-data text-sm font-bold text-deal">{combo.cashFare == null ? "Unavailable" : formatMoney(combo.cashFare, combo.cashCurrency || BASE_CURRENCY)}</p>
+          <p className="font-data text-lg font-bold leading-tight text-deal">{combo.cashFare == null ? "Unavailable" : formatMoney(combo.cashFare, combo.cashCurrency || BASE_CURRENCY)}</p>
           <p className="text-[10px] text-ink-soft">{cashMatchLabel(combo.cashMatchType)}</p>
         </div>
         <div>
           <p className="text-[10px] uppercase tracking-wider text-ink-soft">Round-trip CPP</p>
           {combo.sameProgram ? (
             <>
-              <p className="font-data text-sm font-bold text-deal">{combo.cpp == null ? "Unavailable" : `${combo.cpp.toFixed(2)}¢/pt`}</p>
+              <p className="font-data text-lg font-bold leading-tight text-deal">{combo.cpp == null ? "Unavailable" : `${combo.cpp.toFixed(2)}¢/pt`}</p>
               <p className="text-[10px] text-ink-soft">Same loyalty currency across both legs.</p>
             </>
           ) : (
             <>
-              <p className="font-data text-sm font-bold text-deal">{combo.derivedBlendedCpp == null ? "Unavailable" : `${combo.derivedBlendedCpp.toFixed(2)}¢/pt`}</p>
+              <p className="font-data text-lg font-bold leading-tight text-deal">{combo.derivedBlendedCpp == null ? "Unavailable" : `${combo.derivedBlendedCpp.toFixed(2)}¢/pt`}</p>
               <p className="text-[10px] text-ink-soft">Derived / blended across both point currencies.</p>
               {combo.legCppBreakdown?.length > 0 && (
                 <div className="mt-1 space-y-0.5 font-data text-[10px] font-semibold">

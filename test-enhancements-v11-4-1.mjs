@@ -44,8 +44,8 @@ assert.match(app, /useState\("rewards"\)/);
 assert.ok(fs.existsSync("public/red-airplane-favicon.png"));
 assert.match(html, /red-airplane-favicon\.png/);
 assert.doesNotMatch(html, /✈|✈️/);
-assert.match(html, /PointsBoard v11\.4\.4/);
+assert.match(html, /PointsBoard v11\.4\.5/);
 assert.match(cash, /multiple cabins allowed/);
 assert.match(cash, /searchRoundTripCashFares\(\{ proxyBase, origin: o, destination: d, departDate: date, returnDate, flex: dateFlex, cabin, adults: 1 \}\)/);
 
-console.log("✓ v11.4.4 UI synchronization, 1,000-airport catalog, round-trip savings, uploaded-airplane favicon, dynamic program re-filtering, split-program CPP, and multi-cabin cash-fare checks passed");
+console.log("✓ v11.4.5 UI synchronization, 1,000-airport catalog, round-trip savings, uploaded-airplane favicon, dynamic program re-filtering, split-program CPP, and multi-cabin cash-fare checks passed");

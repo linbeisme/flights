@@ -36,6 +36,6 @@ for (const label of ["Get cash fares", "Clear fares", "Reset filters", "Saved se
 assert.ok(fs.existsSync("public/red-airplane-favicon.png"));
 assert.match(html, /red-airplane-favicon\.png/);
 assert.doesNotMatch(html, /✈|✈️/);
-assert.match(html, /PointsBoard v11\.4\.4/);
+assert.match(html, /PointsBoard v11\.4\.5/);
 
-console.log("✓ v11.4.4 retained-v11.3.7 regression checks passed: original controls retained, add-route moved, cash fares reused, and uploaded red-airplane favicon configured");
+console.log("✓ v11.4.5 retained-v11.3.7 regression checks passed: original controls retained, add-route moved, cash fares reused, and uploaded red-airplane favicon configured");

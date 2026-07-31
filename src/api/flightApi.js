@@ -526,6 +526,7 @@ export const DEFAULT_FILTERS = {
   layoverMaxH: "",
   totalMinH: "",
   totalMaxH: "",
+  maxTaxesUsd: "", // maximum award taxes/fees in USD; round trips use the combined total
   pax: 1, // passengers: hide options with fewer known award seats than this
   sort: "cpp",
 };
@@ -587,6 +588,12 @@ export function applyFilters(results, f) {
     }
     if (f.totalMaxH !== "" && r.totalMinutes != null) {
       if (r.totalMinutes > Number(f.totalMaxH) * 60) return false;
+    }
+
+    if (f.maxTaxesUsd !== "") {
+      const maximum = Number(f.maxTaxesUsd);
+      if (!Number.isFinite(maximum) || maximum < 0) return false;
+      if (!Number.isFinite(r.taxesUsd) || r.taxesUsd > maximum) return false;
     }
     return true;
   });

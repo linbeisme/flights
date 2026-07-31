@@ -213,14 +213,18 @@ export default function App() {
 
     const sameProgram = [];
     const splitProgram = [];
+    const directionalFilters = { ...effectiveFilters, maxTaxesUsd: "" };
+    const maximumRoundTripTaxes = effectiveFilters.maxTaxesUsd === "" ? null : Number(effectiveFilters.maxTaxesUsd);
+    const taxesPass = (combo) => maximumRoundTripTaxes == null ||
+      (Number.isFinite(maximumRoundTripTaxes) && maximumRoundTripTaxes >= 0 && Number.isFinite(combo.taxesUsd) && combo.taxesUsd <= maximumRoundTripTaxes);
     for (const scenario of roundTripData.scenarios) {
       const outbound = applyFilters(
         (scenario.outboundRows || []).map((row) => enrichResult(row, cppLibrary, fxRates)),
-        effectiveFilters
+        directionalFilters
       );
       const returning = applyFilters(
         (scenario.returnRows || []).map((row) => enrichResult(row, cppLibrary, fxRates)),
-        effectiveFilters
+        directionalFilters
       );
       const scenarioCash = (roundTripData.cashRows || []).filter((row) =>
         row.origin === scenario.route.origin &&
@@ -233,8 +237,8 @@ export default function App() {
         cashRows: scenarioCash,
         pax,
       });
-      sameProgram.push(...combinations.sameProgram);
-      splitProgram.push(...combinations.splitProgram);
+      sameProgram.push(...combinations.sameProgram.filter(taxesPass));
+      splitProgram.push(...combinations.splitProgram.filter(taxesPass));
     }
 
     const sortCombos = (left, right) => {
@@ -540,7 +544,7 @@ export default function App() {
         <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-3 px-4 py-3">
           <h1 className="flex items-baseline gap-2 font-data text-lg font-bold tracking-[0.2em]">
             <span>POINTS<span className="text-magenta">BOARD</span></span>
-            <span className="rounded border border-line bg-card px-1.5 py-0.5 text-[10px] font-bold tracking-normal text-ink-soft">v11.4.4</span>
+            <span className="rounded border border-line bg-card px-1.5 py-0.5 text-[10px] font-bold tracking-normal text-ink-soft">v11.4.5</span>
           </h1>
           <p className="hidden text-xs text-ink-soft sm:block">
             award space · taxes · cash fares · cents per point
@@ -827,7 +831,7 @@ export default function App() {
       </main>
 
       <footer className="mx-auto max-w-[1440px] px-4 pb-6 text-[11px] text-ink-soft">
-        Award data © seats.aero. Live mode never creates a synthetic cash fare. CPP uses an exact cash itinerary when flight numbers match; otherwise it is labeled as a probable schedule match, same-airline benchmark, or route/cabin benchmark. When no live fare is available, cash fare, CPP, and cash-based savings remain unavailable. CPP = ((cash fare − taxes and fees) ÷ points) × 100. <span className="font-data font-semibold text-magenta">build v11.4.4 · aligned cash filters + booking links + airport-specific layovers + manual CPP overrides</span>
+        Award data © seats.aero. Live mode never creates a synthetic cash fare. CPP uses an exact cash itinerary when flight numbers match; otherwise it is labeled as a probable schedule match, same-airline benchmark, or route/cabin benchmark. When no live fare is available, cash fare, CPP, and cash-based savings remain unavailable. CPP = ((cash fare − taxes and fees) ÷ points) × 100. <span className="font-data font-semibold text-magenta">build v11.4.5 · Google Flights links + duration placement + max tax filter + TPG CPP publishing workflow</span>
       </footer>
     </div>
   );

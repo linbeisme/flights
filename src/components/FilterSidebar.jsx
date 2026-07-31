@@ -250,6 +250,28 @@ export default function FilterSidebar({ filters, onChange }) {
         />
       </Fieldset>
 
+      <Fieldset legend="Maximum fees & taxes">
+        <label className="block text-xs">
+          Maximum award fees/taxes in USD
+          <div className="mt-1 flex items-center gap-1.5">
+            <span className="font-data text-xs text-ink-soft">$</span>
+            <input
+              type="number"
+              min={0}
+              step={1}
+              value={filters.maxTaxesUsd}
+              onChange={(e) => set({ maxTaxesUsd: e.target.value })}
+              placeholder="No maximum"
+              aria-label="Maximum award fees and taxes in U.S. dollars"
+              className="w-full rounded border border-line bg-card px-1.5 py-1 font-data text-xs"
+            />
+          </div>
+        </label>
+        <p className="mt-1 text-[10px] text-ink-soft">
+          One-way results use the itinerary total. Round-trip results use the combined outbound and return total. Results with unavailable USD tax data are hidden when a maximum is entered.
+        </p>
+      </Fieldset>
+
     </section>
   );
 }

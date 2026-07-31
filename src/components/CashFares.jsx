@@ -83,6 +83,7 @@ function CashRow({ f, proxyBase }) {
             <span className="text-2xl font-bold leading-none">{f.departTime || "—"}</span>
             <span aria-hidden="true" className="text-lg text-ink-soft">→</span>
             <span className="text-2xl font-bold leading-none">{f.arriveTime || "—"}</span>
+            {f.totalMinutes != null && <span className="text-sm font-medium text-ink-soft">· {formatDuration(f.totalMinutes)} total</span>}
           </div>
           <div className="mt-1 text-xs text-ink-soft">
             {f.stops == null ? (
@@ -110,7 +111,6 @@ function CashRow({ f, proxyBase }) {
                 )}
               </>
             )}
-            {f.totalMinutes != null && <> · {formatDuration(f.totalMinutes)}</>}
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             <span
@@ -153,11 +153,11 @@ function RoundTripLeg({ label, leg }) {
         <span className="text-xl font-bold">{leg?.departTime || "—"}</span>
         <span className="text-ink-soft">→</span>
         <span className="text-xl font-bold">{leg?.arriveTime || "—"}</span>
+        {leg?.totalMinutes != null && <span className="text-xs font-medium text-ink-soft">· {formatDuration(leg.totalMinutes)} total</span>}
       </div>
       <p className="text-[11px] text-ink-soft">
         {leg?.stops == null ? "Schedule unavailable" : leg.stops === 0 ? "Nonstop" : `${leg.stops} stop${leg.stops === 1 ? "" : "s"}`}
         {connectionLayoverDetails(leg?.connections, leg?.layovers).length ? ` via ${connectionLayoverDetails(leg?.connections, leg?.layovers).map((detail) => detail.label).join(" · ")}` : ""}
-        {leg?.totalMinutes != null ? ` · ${formatDuration(leg.totalMinutes)}` : ""}
       </p>
       {leg?.flightNumbers?.length > 0 && <p className="font-data text-[10px] text-ink-soft">{leg.flightNumbers.join(" / ")}</p>}
     </div>
